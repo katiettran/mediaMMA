@@ -174,7 +174,14 @@ class PhotoBooth {
             // Create a canvas for the photo strip
             const stripCanvas = document.createElement('canvas');
             const stripContext = stripCanvas.getContext('2d');
-            
+
+            // Photo position
+            const slots = [
+            { x: 50, y: 80, w: 300, h: 200 },
+            { x: 50, y: 300, w: 300, h: 200 },
+            { x: 50, y: 520, w: 300, h: 200 }
+            ];          
+
             // Set dimensions for the photo strip (3 photos stacked vertically)
             const photoWidth = 400;
             const photoHeight = 300;
@@ -183,47 +190,56 @@ class PhotoBooth {
             
             stripCanvas.width = photoWidth;
             stripCanvas.height = totalHeight;
-            
-            // Fill background
+
+           //
             const bg = new Image();
-            bg.src = "IMG_6389.PNG";
+            bg.src = "IMG_6390.PNG";
 
-            await new Promise((resolve) => {
-                bg.onload = resolve;
-            });
+            const kv = new Image();
+            kv.src = "IMG_6389.PNG";
 
+            await Promise.all([
+                new Promise(r => bg.onload = r),
+                new Promise(r => kv.onload = r)
+            ]);
+
+            // background
             stripContext.drawImage(bg, 0, 0, photoWidth, totalHeight);
-            
-            // Load and draw each photo
+
+            // photos (wait for ALL to finish)
             const loadPromises = this.photos.map((photoUrl, index) => {
                 return new Promise((resolve) => {
                     const img = new Image();
+
                     img.onload = () => {
                         const y = index * (photoHeight + spacing);
-                        
-                        // Calculate aspect ratio to fit photo properly
+
                         const aspectRatio = img.width / img.height;
                         let drawWidth = photoWidth;
                         let drawHeight = photoHeight;
-                        
+
                         if (aspectRatio > photoWidth / photoHeight) {
                             drawHeight = photoWidth / aspectRatio;
                         } else {
                             drawWidth = photoHeight * aspectRatio;
                         }
-                        
+
                         const x = (photoWidth - drawWidth) / 2;
                         const drawY = y + (photoHeight - drawHeight) / 2;
-                        
+
                         stripContext.drawImage(img, x, drawY, drawWidth, drawHeight);
                         resolve();
                     };
+
                     img.src = photoUrl;
                 });
             });
-            
+
             await Promise.all(loadPromises);
-            
+
+            // KV ON TOP (final layer)
+            stripContext.drawImage(kv, 0, 0, photoWidth, totalHeight);
+                        
             // Add title
             stripContext.fillStyle = '#333';
             stripContext.font = 'bold 24px Poppins';
