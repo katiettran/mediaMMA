@@ -11,12 +11,18 @@ body {
     min-height: 100vh;
     color: #333;
     line-height: 1.6;
+    background-image: url('IMG_6390.PNG');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .container {
   max-width: 420px;
   width: 100%;
   margin: 0 auto;
+background-image: url('IMG_6390.PNG');
+
 }
 
 /* Header */

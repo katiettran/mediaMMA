@@ -185,8 +185,14 @@ class PhotoBooth {
             stripCanvas.height = totalHeight;
             
             // Fill background
-            stripContext.fillStyle = '#f0f0f0';
-            stripContext.fillRect(0, 0, photoWidth, totalHeight);
+            const bg = new Image();
+            bg.src = "IMG_6389.PNG";
+
+            await new Promise((resolve) => {
+                bg.onload = resolve;
+            });
+
+            stripContext.drawImage(bg, 0, 0, photoWidth, totalHeight);
             
             // Load and draw each photo
             const loadPromises = this.photos.map((photoUrl, index) => {
