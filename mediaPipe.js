@@ -105,7 +105,7 @@ export async function compositeVirtualBackground(video, kvBackground, outCanvas)
     const maskImageData = maskCtx.createImageData(maskW, maskH);
 
     for (let i = 0; i < categoryData.length; i++) {
-        const isPerson = categoryData[i] !== 0;
+        const isPerson = categoryData[i] === 0;
         const offset = i * 4;
         maskImageData.data[offset] = 255;
         maskImageData.data[offset + 1] = 255;
