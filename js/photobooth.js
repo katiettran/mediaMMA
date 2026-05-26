@@ -1,347 +1,376 @@
+import { compositeVirtualBackground, drawCover } from '../mediaPipe.js';
+
+const ASSETS = {
+    virtualBackground: 'IMG_6389.PNG',
+    stripFrame: 'IMG_6390.PNG',
+};
+
+const PHOTO_WIDTH = 520;
+const PHOTO_HEIGHT = 390;
+const STRIP_PADDING = 36;
+const STRIP_GAP = 6;
+
+function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Failed to load ${src}`));
+        img.src = src;
+    });
+}
+
 class PhotoBooth {
     constructor() {
         this.video = document.getElementById('video');
         this.canvas = document.getElementById('canvas');
         this.countdown = document.getElementById('countdown');
         this.countdownNumber = this.countdown.querySelector('.countdown-number');
-        
+
+        this.captureScreen = document.getElementById('captureScreen');
+        this.resultsScreen = document.getElementById('resultsScreen');
+        this.instructions = document.getElementById('instructions');
+        this.photoProgress = document.getElementById('photoProgress');
+        this.stripPreview = document.getElementById('stripPreview');
+
         this.startCameraBtn = document.getElementById('startCamera');
         this.takePhotoBtn = document.getElementById('takePhoto');
-        this.resetPhotosBtn = document.getElementById('resetPhotos');
         this.downloadStripBtn = document.getElementById('downloadStrip');
-        
+        this.shareStripBtn = document.getElementById('shareStrip');
+        this.retakePhotosBtn = document.getElementById('retakePhotos');
+
         this.photoSlots = [
             document.getElementById('photo1'),
             document.getElementById('photo2'),
-            document.getElementById('photo3')
+            document.getElementById('photo3'),
         ];
-        
+
         this.stream = null;
         this.currentPhotoIndex = 0;
         this.photos = [];
         this.isCountingDown = false;
-        
+        this.stripBlob = null;
+        this.stripPreviewUrl = null;
+        this.kvBackground = null;
+        this.frameImage = null;
+        this.stripCreatedAt = null;
+
         this.initializeEventListeners();
+        this.preloadAssets();
     }
-    
+
+    async preloadAssets() {
+        try {
+            [this.kvBackground, this.frameImage] = await Promise.all([
+                loadImage(ASSETS.virtualBackground),
+                loadImage(ASSETS.stripFrame),
+            ]);
+        } catch (error) {
+            console.error('Failed to preload images:', error);
+            this.showError('Could not load booth images. Check that IMG_6389.PNG and IMG_6390.PNG are in the project folder.');
+        }
+    }
+
     initializeEventListeners() {
         this.startCameraBtn.addEventListener('click', () => this.startCamera());
         this.takePhotoBtn.addEventListener('click', () => this.startPhotoCapture());
-        this.resetPhotosBtn.addEventListener('click', () => this.resetPhotos());
         this.downloadStripBtn.addEventListener('click', () => this.downloadPhotoStrip());
+        this.shareStripBtn.addEventListener('click', () => this.sharePhotoStrip());
+        this.retakePhotosBtn.addEventListener('click', () => this.retake());
     }
-    
+
+    updateProgress() {
+        this.photoProgress.textContent = `${this.currentPhotoIndex} / 3 photos`;
+    }
+
     async startCamera() {
         try {
             this.startCameraBtn.disabled = true;
             this.startCameraBtn.innerHTML = '<span class="loading"></span> Starting Camera...';
-            
+
             this.stream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     width: { ideal: 1280 },
                     height: { ideal: 720 },
-                    facingMode: 'user'
-                }
+                    facingMode: 'user',
+                },
+                audio: false,
             });
-            
+
             this.video.srcObject = this.stream;
             await this.video.play();
-            
+
             this.startCameraBtn.style.display = 'none';
             this.takePhotoBtn.disabled = false;
-            
-            // Add success animation
-            this.video.style.animation = 'flash 0.5s ease-in-out';
-            setTimeout(() => {
-                this.video.style.animation = '';
-            }, 500);
-            
         } catch (error) {
             console.error('Error accessing camera:', error);
-            this.showError('Unable to access camera. Please make sure you have granted camera permissions.');
+            this.showError('Unable to access camera. Please allow camera permissions and try again.');
             this.startCameraBtn.disabled = false;
             this.startCameraBtn.innerHTML = '<span class="icon">📷</span> Start Camera';
         }
     }
-    
+
     startPhotoCapture() {
         if (this.isCountingDown || this.currentPhotoIndex >= 3) return;
-        
+
         this.isCountingDown = true;
         this.takePhotoBtn.disabled = true;
-        
+
         this.countdown.style.display = 'flex';
         this.countdownNumber.textContent = '3';
-        
+
         let count = 3;
         const countdownInterval = setInterval(() => {
-            count--;
-            this.countdownNumber.textContent = count;
-            
+            count -= 1;
+            this.countdownNumber.textContent = count > 0 ? String(count) : '';
+
             if (count <= 0) {
                 clearInterval(countdownInterval);
                 this.capturePhoto();
             }
         }, 1000);
     }
-    
-    capturePhoto() {
-        // Set canvas dimensions to match video
-        this.canvas.width = this.video.videoWidth;
-        this.canvas.height = this.video.videoHeight;
-        
-        // Draw video frame to canvas
-        const context = this.canvas.getContext('2d');
-        context.drawImage(this.video, 0, 0);
-        
-        // Convert canvas to blob
-        this.canvas.toBlob((blob) => {
-            const photoUrl = URL.createObjectURL(blob);
-            this.photos[this.currentPhotoIndex] = photoUrl;
-            this.displayPhoto(this.currentPhotoIndex, photoUrl);
-            
-            // Hide countdown
-            this.countdown.style.display = 'none';
-            
-            // Add capture animation
-            this.video.classList.add('photo-captured');
-            setTimeout(() => {
-                this.video.classList.remove('photo-captured');
-            }, 300);
-            
-            this.currentPhotoIndex++;
-            
-            // Update button states
-            if (this.currentPhotoIndex < 3) {
-                this.takePhotoBtn.disabled = false;
-            } else {
-                this.takePhotoBtn.disabled = true;
-                this.takePhotoBtn.innerHTML = '<span class="icon">✅</span> All Photos Taken';
-            }
-            
-            // Enable download if all photos are taken
-            if (this.currentPhotoIndex === 3) {
-                this.downloadStripBtn.disabled = false;
-            }
-            
-            this.isCountingDown = false;
-        }, 'image/jpeg', 0.9);
+
+    async capturePhoto() {
+        if (!this.kvBackground) {
+            await this.preloadAssets();
+        }
+
+        this.canvas.width = PHOTO_WIDTH;
+        this.canvas.height = PHOTO_HEIGHT;
+
+        try {
+            await compositeVirtualBackground(
+                this.video,
+                this.kvBackground,
+                this.canvas
+            );
+        } catch (error) {
+            console.warn('Virtual background failed, using fallback:', error);
+            const ctx = this.canvas.getContext('2d');
+            drawCover(ctx, this.kvBackground, 0, 0, PHOTO_WIDTH, PHOTO_HEIGHT);
+            drawCover(ctx, this.video, 0, 0, PHOTO_WIDTH, PHOTO_HEIGHT, true);
+        }
+
+        this.canvas.toBlob(
+            (blob) => {
+                if (!blob) {
+                    this.showError('Could not capture photo. Please try again.');
+                    this.finishCaptureAttempt();
+                    return;
+                }
+
+                if (this.currentPhotoIndex === 0) {
+                    this.stripCreatedAt = new Date();
+                }
+
+                const photoUrl = this.canvas.toDataURL('image/jpeg', 0.92);
+                this.photos[this.currentPhotoIndex] = photoUrl;
+                this.displayPhoto(this.currentPhotoIndex, photoUrl);
+
+                this.countdown.style.display = 'none';
+                this.video.classList.add('photo-captured');
+                setTimeout(() => this.video.classList.remove('photo-captured'), 300);
+
+                this.currentPhotoIndex += 1;
+                this.updateProgress();
+
+                if (this.currentPhotoIndex < 3) {
+                    this.takePhotoBtn.disabled = false;
+                } else {
+                    this.takePhotoBtn.disabled = true;
+                    this.takePhotoBtn.innerHTML = '<span class="icon">✅</span> All Photos Taken';
+                    this.showResults();
+                }
+
+                this.finishCaptureAttempt();
+            },
+            'image/jpeg',
+            0.92
+        );
     }
-    
+
+    finishCaptureAttempt() {
+        this.isCountingDown = false;
+    }
+
     displayPhoto(index, photoUrl) {
         const slot = this.photoSlots[index];
         slot.innerHTML = `<img src="${photoUrl}" alt="Photo ${index + 1}">`;
         slot.classList.add('filled');
-        
-        // Add entrance animation
-        slot.style.animation = 'flash 0.5s ease-in-out';
-        setTimeout(() => {
-            slot.style.animation = '';
-        }, 500);
     }
-    
-    resetPhotos() {
-        // Clear all photos
+
+    drawStripTimestamp(ctx, stripWidth, stripHeight) {
+        const timestamp = (this.stripCreatedAt || new Date()).toLocaleString();
+        ctx.save();
+        ctx.font = '600 14px Poppins, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(timestamp, stripWidth / 2, stripHeight - 14);
+        ctx.restore();
+    }
+
+    async buildStripCanvas() {
+        const photoUrls = [this.photos[0], this.photos[1], this.photos[2]];
+        if (!this.frameImage || photoUrls.some((url) => !url)) {
+            throw new Error('Photos or frame not ready');
+        }
+
+        const photoImages = await Promise.all(photoUrls.map((url) => loadImage(url)));
+
+        const stripWidth = PHOTO_WIDTH + STRIP_PADDING * 2;
+        const stripHeight =
+            PHOTO_HEIGHT * 3 + STRIP_GAP * 2 + STRIP_PADDING * 2;
+
+        const stripCanvas = document.createElement('canvas');
+        stripCanvas.width = stripWidth;
+        stripCanvas.height = stripHeight;
+        const ctx = stripCanvas.getContext('2d');
+
+        drawCover(ctx, this.frameImage, 0, 0, stripWidth, stripHeight);
+
+        photoImages.forEach((img, index) => {
+            const x = STRIP_PADDING;
+            const y = STRIP_PADDING + index * (PHOTO_HEIGHT + STRIP_GAP);
+            ctx.drawImage(img, x, y, PHOTO_WIDTH, PHOTO_HEIGHT);
+        });
+
+        this.drawStripTimestamp(ctx, stripWidth, stripHeight);
+
+        return stripCanvas;
+    }
+
+    async showResults() {
+        try {
+            const stripCanvas = await this.buildStripCanvas();
+            const blob = await new Promise((resolve) => {
+                stripCanvas.toBlob(resolve, 'image/png');
+            });
+
+            if (!blob) throw new Error('Could not build strip');
+
+            if (this.stripPreviewUrl) {
+                URL.revokeObjectURL(this.stripPreviewUrl);
+            }
+
+            this.stripBlob = blob;
+            this.stripPreviewUrl = URL.createObjectURL(blob);
+            this.stripPreview.src = this.stripPreviewUrl;
+
+            this.captureScreen.hidden = true;
+            this.resultsScreen.hidden = false;
+            this.instructions.hidden = true;
+        } catch (error) {
+            console.error('Error building strip preview:', error);
+            this.showError('Could not build your photo strip. Please try again.');
+        }
+    }
+
+    async downloadPhotoStrip() {
+        if (!this.stripBlob) {
+            try {
+                const stripCanvas = await this.buildStripCanvas();
+                this.stripBlob = await new Promise((resolve) => {
+                    stripCanvas.toBlob(resolve, 'image/png');
+                });
+            } catch (error) {
+                this.showError('Nothing to download yet.');
+                return;
+            }
+        }
+
+        const url = URL.createObjectURL(this.stripBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `photobooth-strip-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    async sharePhotoStrip() {
+        if (!this.stripBlob) {
+            this.showError('Create your strip first by taking all 3 photos.');
+            return;
+        }
+
+        const file = new File([this.stripBlob], `photobooth-strip-${Date.now()}.png`, {
+            type: 'image/png',
+        });
+
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+            try {
+                await navigator.share({
+                    title: 'My PhotoBooth Strip',
+                    text: 'Check out my photobooth strip!',
+                    files: [file],
+                });
+                return;
+            } catch (error) {
+                if (error.name === 'AbortError') return;
+            }
+        }
+
+        await this.downloadPhotoStrip();
+        this.showError('Sharing is not supported in this browser — your strip was downloaded instead.');
+    }
+
+    retake() {
         this.photos = [];
         this.currentPhotoIndex = 0;
-        
-        // Reset photo slots
+        this.stripBlob = null;
+        this.stripCreatedAt = null;
+
+        if (this.stripPreviewUrl) {
+            URL.revokeObjectURL(this.stripPreviewUrl);
+            this.stripPreviewUrl = null;
+        }
+
+        this.stripPreview.removeAttribute('src');
+
         this.photoSlots.forEach((slot, index) => {
             slot.innerHTML = `<div class="placeholder">Photo ${index + 1}</div>`;
             slot.classList.remove('filled');
         });
-        
-        // Reset buttons
-        this.takePhotoBtn.disabled = false;
+
+        this.takePhotoBtn.disabled = !this.stream;
         this.takePhotoBtn.innerHTML = '<span class="icon">⚡</span> Take Photo';
-        this.downloadStripBtn.disabled = true;
-        
-        // Show camera button if camera is not active
-        if (!this.stream) {
-            this.startCameraBtn.style.display = 'flex';
-            this.startCameraBtn.disabled = false;
-            this.startCameraBtn.innerHTML = '<span class="icon">📷</span> Start Camera';
-        }
+        this.updateProgress();
+
+        this.resultsScreen.hidden = true;
+        this.captureScreen.hidden = false;
+        this.instructions.hidden = false;
     }
-    
-    async downloadPhotoStrip() {
-        if (this.photos.length !== 3) return;
-        
-        try {
-            this.downloadStripBtn.disabled = true;
-            this.downloadStripBtn.innerHTML = '<span class="loading"></span> Creating Strip...';
-            
-            // Create a canvas for the photo strip
-            const stripCanvas = document.createElement('canvas');
-            const stripContext = stripCanvas.getContext('2d');
 
-            // Photo position
-            const slots = [
-            { x: 50, y: 80, w: 300, h: 200 },
-            { x: 50, y: 300, w: 300, h: 200 },
-            { x: 50, y: 520, w: 300, h: 200 }
-            ];          
-
-            // Set dimensions for the photo strip (3 photos stacked vertically)
-            const photoWidth = 400;
-            const photoHeight = 300;
-            const spacing = 20;
-            const totalHeight = (photoHeight * 3) + (spacing * 2);
-            
-            stripCanvas.width = photoWidth;
-            stripCanvas.height = totalHeight;
-
-           //
-            const bg = new Image();
-            bg.src = "IMG_6390.PNG";
-
-            const kv = new Image();
-            kv.src = "IMG_6389.PNG";
-
-            await Promise.all([
-                new Promise(r => bg.onload = r),
-                new Promise(r => kv.onload = r)
-            ]);
-
-            // background
-            stripContext.drawImage(bg, 0, 0, photoWidth, totalHeight);
-
-            // photos (wait for ALL to finish)
-            const loadPromises = this.photos.map((photoUrl, index) => {
-                return new Promise((resolve) => {
-                    const img = new Image();
-
-                    img.onload = () => {
-                        const y = index * (photoHeight + spacing);
-
-                        const aspectRatio = img.width / img.height;
-                        let drawWidth = photoWidth;
-                        let drawHeight = photoHeight;
-
-                        if (aspectRatio > photoWidth / photoHeight) {
-                            drawHeight = photoWidth / aspectRatio;
-                        } else {
-                            drawWidth = photoHeight * aspectRatio;
-                        }
-
-                        const x = (photoWidth - drawWidth) / 2;
-                        const drawY = y + (photoHeight - drawHeight) / 2;
-
-                        stripContext.drawImage(img, x, drawY, drawWidth, drawHeight);
-                        resolve();
-                    };
-
-                    img.src = photoUrl;
-                });
-            });
-
-            await Promise.all(loadPromises);
-
-            // KV ON TOP (final layer)
-            stripContext.drawImage(kv, 0, 0, photoWidth, totalHeight);
-                        
-            // Add title
-            stripContext.fillStyle = '#333';
-            stripContext.font = 'bold 24px Poppins';
-            stripContext.textAlign = 'center';
-            stripContext.fillText('PhotoBooth Strip', photoWidth / 2, 30);
-            
-            // Add timestamp
-            const timestamp = new Date().toLocaleString();
-            stripContext.font = '14px Poppins';
-            stripContext.fillStyle = '#666';
-            stripContext.fillText(timestamp, photoWidth / 2, totalHeight - 10);
-            
-            // Convert to blob and download
-            stripCanvas.toBlob((blob) => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `photobooth-strip-${Date.now()}.png`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                this.downloadStripBtn.disabled = false;
-                this.downloadStripBtn.innerHTML = '<span class="icon">💾</span> Download Strip';
-            }, 'image/png');
-            
-        } catch (error) {
-            console.error('Error creating photo strip:', error);
-            this.showError('Error creating photo strip. Please try again.');
-            this.downloadStripBtn.disabled = false;
-            this.downloadStripBtn.innerHTML = '<span class="icon">💾</span> Download Strip';
-        }
-    }
-    
     showError(message) {
-        // Create error notification
         const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #ff4757;
-            color: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            z-index: 1000;
-            font-family: 'Poppins', sans-serif;
-            max-width: 300px;
-        `;
+        notification.className = 'toast-error';
         notification.textContent = message;
-        
         document.body.appendChild(notification);
-        
-        // Remove after 5 seconds
+
         setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
+            notification.remove();
         }, 5000);
     }
-    
-    // Cleanup method
+
     cleanup() {
         if (this.stream) {
-            this.stream.getTracks().forEach(track => track.stop());
+            this.stream.getTracks().forEach((track) => track.stop());
         }
-        
-        // Clean up photo URLs
-        this.photos.forEach(url => {
-            if (url) URL.revokeObjectURL(url);
-        });
+
+        if (this.stripPreviewUrl) {
+            URL.revokeObjectURL(this.stripPreviewUrl);
+        }
     }
 }
 
-// Initialize the photobooth when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     const photobooth = new PhotoBooth();
-    
-    // Cleanup on page unload
+
     window.addEventListener('beforeunload', () => {
         photobooth.cleanup();
     });
 });
-
-// Add some fun sound effects (optional)
-function playShutterSound() {
-    // Create a simple beep sound
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-    oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-    
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.1);
-} 

@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>PhotoBooth - Capture Your Memories</title>
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -15,71 +16,82 @@
         </header>
 
         <main>
-            <!-- Camera View -->
-            <div class="camera-section">
-                <video id="video" autoplay playsinline muted></video>
-                <canvas id="canvas" style="display: none;"></canvas>
-                
-                <!-- Countdown Overlay -->
-                <div id="countdown" class="countdown-overlay">
-                    <div class="countdown-number">3</div>
+            <!-- Capture flow -->
+            <section id="captureScreen" class="capture-screen">
+                <div class="camera-section">
+                    <div class="camera-wrapper">
+                        <div class="camera-bg" aria-hidden="true"></div>
+                        <video id="video" autoplay playsinline muted></video>
+                        <canvas id="canvas" class="hidden-canvas"></canvas>
+
+                        <div id="countdown" class="countdown-overlay">
+                            <div class="countdown-number">3</div>
+                        </div>
+                    </div>
+
+                    <div class="camera-controls">
+                        <button id="startCamera" class="btn btn-primary" type="button">
+                            <span class="icon">📷</span>
+                            Start Camera
+                        </button>
+                        <button id="takePhoto" class="btn btn-secondary" type="button" disabled>
+                            <span class="icon">⚡</span>
+                            Take Photo
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Camera Controls -->
-                <div class="camera-controls">
-                    <button id="startCamera" class="btn btn-primary">
-                        <span class="icon">📷</span>
-                        Start Camera
-                    </button>
-                    <button id="takePhoto" class="btn btn-secondary" disabled>
-                        <span class="icon">⚡</span>
-                        Take Photo
-                    </button>
+                <div class="photo-frame">
+                    <h2>Your Photo Strip</h2>
+                    <div class="frame-container">
+                        <div class="photo-slot" id="photo1">
+                            <div class="placeholder">Photo 1</div>
+                        </div>
+                        <div class="photo-slot" id="photo2">
+                            <div class="placeholder">Photo 2</div>
+                        </div>
+                        <div class="photo-slot" id="photo3">
+                            <div class="placeholder">Photo 3</div>
+                        </div>
+                    </div>
+                    <p class="photo-progress" id="photoProgress">0 / 3 photos</p>
                 </div>
-            </div>
+            </section>
 
-            <!-- Photo Frame -->
-            <div class="photo-frame">
-                <h2>Your Photo Strip</h2>
-                <div class="frame-container">
-                    <div class="photo-slot" id="photo1">
-                        <div class="placeholder">Photo 1</div>
-                    </div>
-                    <div class="photo-slot" id="photo2">
-                        <div class="placeholder">Photo 2</div>
-                    </div>
-                    <div class="photo-slot" id="photo3">
-                        <div class="placeholder">Photo 3</div>
-                    </div>
+            <!-- Results flow -->
+            <section id="resultsScreen" class="results-screen" hidden>
+                <h2>Your strip is ready!</h2>
+                <div class="strip-preview-wrap">
+                    <img id="stripPreview" alt="Your photo strip preview">
                 </div>
-                
-                <!-- Action Buttons -->
-                <div class="action-buttons">
-                    <button id="resetPhotos" class="btn btn-danger">
-                        <span class="icon">🔄</span>
-                        Reset All
-                    </button>
-                    <button id="downloadStrip" class="btn btn-success" disabled>
+                <div class="action-buttons results-actions">
+                    <button id="downloadStrip" class="btn btn-success" type="button">
                         <span class="icon">💾</span>
-                        Download Strip
+                        Download
+                    </button>
+                    <button id="shareStrip" class="btn btn-primary" type="button">
+                        <span class="icon">📤</span>
+                        Share
+                    </button>
+                    <button id="retakePhotos" class="btn btn-danger" type="button">
+                        <span class="icon">🔄</span>
+                        Retake
                     </button>
                 </div>
-            </div>
+            </section>
         </main>
 
-        <!-- Instructions -->
-        <div class="instructions">
+        <div class="instructions" id="instructions">
             <h3>How to use:</h3>
             <ol>
-                <li>Click "Start Camera" to enable your camera</li>
+                <li>Tap <strong>Start Camera</strong> and allow camera access</li>
                 <li>Position yourself in the frame</li>
-                <li>Click "Take Photo" - you'll get a 3-second countdown</li>
-                <li>Repeat until all 3 photos are taken</li>
-                <li>Download your photo strip!</li>
+                <li>Tap <strong>Take Photo</strong> — 3 second countdown</li>
+                <li>Take all 3 photos, then download or share your strip</li>
             </ol>
         </div>
     </div>
 
-    <script src="js/photobooth.js"></script>
+    <script type="module" src="js/photobooth.js"></script>
 </body>
-</html> 
+</html>
