@@ -21,10 +21,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/photobooth-app.git"
+    "url": "https://github.com/katiettran/photobooth-app.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/photobooth-app/issues"
+    "url": "https://github.com/katiettran/photobooth-app/issues"
   },
-  "homepage": "https://github.com/yourusername/photobooth-app#readme"
+  "homepage": "https://github.com/katiettran/photobooth-app#readme"
 } 

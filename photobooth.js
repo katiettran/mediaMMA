@@ -45,7 +45,7 @@ class PhotoBooth {
             });
             
             this.video.srcObject = this.stream;
-            this.video.play();
+            await this.video.play();
             
             this.startCameraBtn.style.display = 'none';
             this.takePhotoBtn.disabled = false;
