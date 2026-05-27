@@ -1,14 +1,16 @@
 import { compositeVirtualBackground, drawCover } from '../mediaPipe.js';
 
 const ASSETS = {
-    virtualBackground: 'IMG_6389.PNG',
-    stripFrame: 'IMG_6390.PNG',
+    virtualBackground: 'IMG_6390.PNG',
+    stripFrame: 'PTB.png',
 };
 
 const PHOTO_WIDTH = 520;
 const PHOTO_HEIGHT = 390;
-const STRIP_PADDING = 36;
-const STRIP_GAP = 6;
+const STRIP_PADDING_TOP = 376;
+const STRIP_PADDING_BOTTOM = 106;
+const STRIP_PADDING_SIDE = 40;
+const STRIP_GAP = 24;
 
 function loadImage(src) {
     return new Promise((resolve, reject) => {
@@ -66,7 +68,7 @@ class PhotoBooth {
             ]);
         } catch (error) {
             console.error('Failed to preload images:', error);
-            this.showError('Could not load booth images. Check that IMG_6389.PNG and IMG_6390.PNG are in the project folder.');
+            this.showError('Could not load booth images. Check that IMG_6390.PNG and PTB.PNG are in the project folder.');
         }
     }
 
@@ -220,21 +222,30 @@ class PhotoBooth {
 
         const photoImages = await Promise.all(photoUrls.map((url) => loadImage(url)));
 
-        const stripWidth = PHOTO_WIDTH + STRIP_PADDING * 2;
-        const stripHeight =
-            PHOTO_HEIGHT * 3 + STRIP_GAP * 2 + STRIP_PADDING * 2;
+        const stripWidth = this.frameImage.naturalWidth;
+        const stripHeight = this.frameImage.naturalHeight;
+
+        const photoYPositions = [
+            STRIP_PADDING_TOP,
+            STRIP_PADDING_TOP + PHOTO_HEIGHT + STRIP_GAP,
+            STRIP_PADDING_TOP + (PHOTO_HEIGHT + STRIP_GAP) * 2,
+        ];
 
         const stripCanvas = document.createElement('canvas');
         stripCanvas.width = stripWidth;
         stripCanvas.height = stripHeight;
         const ctx = stripCanvas.getContext('2d');
 
-        drawCover(ctx, this.frameImage, 0, 0, stripWidth, stripHeight);
+        ctx.drawImage(this.frameImage, 0, 0);
 
         photoImages.forEach((img, index) => {
-            const x = STRIP_PADDING;
-            const y = STRIP_PADDING + index * (PHOTO_HEIGHT + STRIP_GAP);
-            ctx.drawImage(img, x, y, PHOTO_WIDTH, PHOTO_HEIGHT);
+            ctx.drawImage(
+                img,
+                STRIP_PADDING_SIDE,
+                photoYPositions[index],
+                PHOTO_WIDTH,
+                PHOTO_HEIGHT
+            );
         });
 
         this.drawStripTimestamp(ctx, stripWidth, stripHeight);
