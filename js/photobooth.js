@@ -1,298 +1,716 @@
-import { compositeVirtualBackground, drawCover } from '../mediaPipe.js';
-
-const ASSETS = {
-    virtualBackground: 'IMG_6390.PNG',
-    stripFrame: 'PTB.png',
-};
-
-const PHOTO_WIDTH = 520;
-const PHOTO_HEIGHT = 390;
-const STRIP_PADDING_TOP = 376;
-const STRIP_PADDING_BOTTOM = 106;
-const STRIP_PADDING_SIDE = 40;
-const STRIP_GAP = 24;
-
-function loadImage(src) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`Failed to load ${src}`));
-        img.src = src;
-    });
-}
+import { compositeVirtualBackground } from './mediaPipe.js';
 
 class PhotoBooth {
     constructor() {
         this.video = document.getElementById('video');
         this.canvas = document.getElementById('canvas');
+        // Capture panel preview (overlay inside capture PNG)
+        this.previewCanvas = document.getElementById('previewCanvas');
+        this.capturePanelWrap = document.getElementById('capturePanelWrap');
+        this.capturePanelImg = document.getElementById('capturePanelImg');
+        this.capturePreview = document.getElementById('capturePreview');
         this.countdown = document.getElementById('countdown');
         this.countdownNumber = this.countdown.querySelector('.countdown-number');
 
-        this.captureScreen = document.getElementById('captureScreen');
-        this.resultsScreen = document.getElementById('resultsScreen');
-        this.instructions = document.getElementById('instructions');
-        this.photoProgress = document.getElementById('photoProgress');
-        this.stripPreview = document.getElementById('stripPreview');
+        // Screens
+        this.screens = {
+            start: document.getElementById('screenStart'),
+            chooseLayout: document.getElementById('screenChooseLayout'),
+            capture: document.getElementById('screenCapture'),
+            select: document.getElementById('screenSelect'),
+            final: document.getElementById('screenFinal')
+        };
 
-        this.startCameraBtn = document.getElementById('startCamera');
-        this.takePhotoBtn = document.getElementById('takePhoto');
-        this.downloadStripBtn = document.getElementById('downloadStrip');
-        this.shareStripBtn = document.getElementById('shareStrip');
-        this.retakePhotosBtn = document.getElementById('retakePhotos');
+        // Buttons / UI
+        this.startFlowBtn = document.getElementById('startFlow');
+        this.startPanelWrap = document.getElementById('startPanelWrap');
+        this.startPanelImg = document.getElementById('startPanelImg');
+        this.captureBtn = document.getElementById('capturePhoto');
+        this.retakeAllBtn = document.getElementById('retakeAll');
+        this.continueToSelectBtn = document.getElementById('continueToSelect');
+        this.backToCaptureBtn = document.getElementById('backToCapture');
+        this.confirmSelectionBtn = document.getElementById('confirmSelection');
+        this.downloadFinalBtn = document.getElementById('downloadFinal');
+        this.shareFinalBtn = document.getElementById('shareFinal');
 
-        this.photoSlots = [
-            document.getElementById('photo1'),
-            document.getElementById('photo2'),
-            document.getElementById('photo3'),
-        ];
+        this.thumbGrid = document.getElementById('thumbGrid');
+        this.selectGrid = document.getElementById('selectGrid');
+        this.selectHint = document.getElementById('selectHint');
+        this.finalStripPreview = document.getElementById('finalStripPreview');
 
         this.stream = null;
-        this.currentPhotoIndex = 0;
-        this.photos = [];
-        this.isCountingDown = false;
-        this.stripBlob = null;
-        this.stripPreviewUrl = null;
-        this.kvBackground = null;
-        this.frameImage = null;
-        this.stripCreatedAt = null;
 
+        this.layout = null; // 2 | 3 | 4
+        this.captureCount = 6;
+        this.currentCaptureIndex = 0;
+
+        // Store as blobs (for share) + objectURLs (for display)
+        this.photoBlobs = [];
+        this.photoUrls = [];
+
+        this.selectedIndices = new Set();
+        this.isCountingDown = false;
+        this.finalBlob = null;
+        this.isPreviewLoopRunning = false;
+        this.frameSlotCache = new Map();
+        this.kvBackground = null;
+        
         this.initializeEventListeners();
-        this.preloadAssets();
+        this.goToScreen('start');
+        this.setupStartButtonPlacement();
+        this.setupCapturePreviewPlacement();
+        this.preloadKvBackground();
     }
 
-    async preloadAssets() {
+    async preloadKvBackground() {
         try {
-            [this.kvBackground, this.frameImage] = await Promise.all([
-                loadImage(ASSETS.virtualBackground),
-                loadImage(ASSETS.stripFrame),
-            ]);
-        } catch (error) {
-            console.error('Failed to preload images:', error);
-            this.showError('Could not load booth images. Check that IMG_6390.PNG and PTB.PNG are in the project folder.');
+            this.kvBackground = await this.loadImage('IMG_6389.PNG');
+        } catch (e) {
+            console.warn('Failed to load IMG_6389.PNG:', e);
+            this.kvBackground = null;
+        }
+    }
+    
+    initializeEventListeners() {
+        this.startFlowBtn.addEventListener('click', () => this.handleStartFlow());
+
+        document.querySelectorAll('.layoutChoice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const layout = Number(btn.dataset.layout);
+                if (![2,3,4].includes(layout)) return;
+                this.layout = layout;
+                this.goToScreen('capture');
+                this.captureBtn.disabled = false;
+            });
+        });
+
+        this.captureBtn.addEventListener('click', () => this.startPhotoCapture());
+        this.retakeAllBtn.addEventListener('click', () => this.resetCapture());
+        this.continueToSelectBtn.addEventListener('click', () => this.goToSelect());
+        this.backToCaptureBtn.addEventListener('click', () => this.goToScreen('capture'));
+        this.confirmSelectionBtn.addEventListener('click', () => this.buildFinalStrip());
+
+        this.downloadFinalBtn.addEventListener('click', () => this.downloadFinal());
+        this.shareFinalBtn.addEventListener('click', () => this.shareFinal());
+    }
+
+    setupCapturePreviewPlacement() {
+        const apply = () => {
+            if (!this.capturePanelWrap || !this.capturePanelImg || !this.capturePreview) return;
+            const iw = this.capturePanelImg.naturalWidth;
+            const ih = this.capturePanelImg.naturalHeight;
+            if (!iw || !ih) return;
+
+            const panelW = Number(this.capturePanelWrap.dataset.panelW);
+            const panelH = Number(this.capturePanelWrap.dataset.panelH);
+            const previewW = Number(this.capturePanelWrap.dataset.previewW);
+            const previewH = Number(this.capturePanelWrap.dataset.previewH);
+            const previewX = Number(this.capturePanelWrap.dataset.previewX);
+            const previewY = Number(this.capturePanelWrap.dataset.previewY);
+
+            if (![panelW, panelH, previewW, previewH, previewX, previewY].every((n) => Number.isFinite(n))) return;
+
+            // Convert from your provided panel coordinate system -> actual image pixels
+            const scaleX = iw / panelW;
+            const scaleY = ih / panelH;
+
+            const xPct = ((previewX * scaleX) / iw) * 100;
+            const yPct = ((previewY * scaleY) / ih) * 100;
+            const wPct = ((previewW * scaleX) / iw) * 100;
+            const hPct = ((previewH * scaleY) / ih) * 100;
+
+            this.capturePreview.style.left = `${xPct}%`;
+            this.capturePreview.style.top = `${yPct}%`;
+            this.capturePreview.style.width = `${wPct}%`;
+            this.capturePreview.style.height = `${hPct}%`;
+        };
+
+        if (this.capturePanelImg?.complete) apply();
+        this.capturePanelImg?.addEventListener('load', apply, { once: true });
+        window.addEventListener('resize', apply);
+    }
+
+    setupStartButtonPlacement() {
+        const apply = () => {
+            if (!this.startPanelWrap || !this.startPanelImg || !this.startFlowBtn) return;
+            const img = this.startPanelImg;
+            const wrap = this.startPanelWrap;
+
+            // Use the image's intrinsic pixel size as the coordinate space.
+            const iw = img.naturalWidth;
+            const ih = img.naturalHeight;
+            if (!iw || !ih) return;
+
+            const x = Number(wrap.dataset.btnX);
+            const y = Number(wrap.dataset.btnY);
+            const w = Number(wrap.dataset.btnW);
+            const h = Number(wrap.dataset.btnH);
+
+            if (![x, y, w, h].every((n) => Number.isFinite(n))) return;
+
+            const cxPct = ((x + w / 2) / iw) * 100;
+            const cyPct = ((y + h / 2) / ih) * 100;
+            const wPct = (w / iw) * 100;
+            const hPct = (h / ih) * 100;
+
+            // Clamp so it never goes off-panel (prevents "missing" button if numbers exceed image bounds)
+            const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+            const safeW = clamp(wPct, 8, 92);
+            const safeH = clamp(hPct, 6, 40);
+            const safeX = clamp(cxPct, safeW / 2, 100 - safeW / 2);
+            const safeY = clamp(cyPct, safeH / 2, 100 - safeH / 2);
+
+            this.startFlowBtn.style.left = `${safeX}%`;
+            this.startFlowBtn.style.top = `${safeY}%`;
+            this.startFlowBtn.style.width = `${safeW}%`;
+            this.startFlowBtn.style.height = `${safeH}%`;
+        };
+
+        if (this.startPanelImg?.complete) apply();
+        this.startPanelImg?.addEventListener('load', apply, { once: true });
+        window.addEventListener('resize', apply);
+    }
+    
+    goToScreen(screenKey) {
+        Object.values(this.screens).forEach((el) => el.classList.remove('screen--active'));
+        if (this.screens[screenKey]) this.screens[screenKey].classList.add('screen--active');
+
+        if (screenKey === 'capture') {
+            this.renderThumbs();
+            // Ensure preview loop is running on capture screen
+            if (this.stream) this.startPreviewLoop();
         }
     }
 
-    initializeEventListeners() {
-        this.startCameraBtn.addEventListener('click', () => this.startCamera());
-        this.takePhotoBtn.addEventListener('click', () => this.startPhotoCapture());
-        this.downloadStripBtn.addEventListener('click', () => this.downloadPhotoStrip());
-        this.shareStripBtn.addEventListener('click', () => this.sharePhotoStrip());
-        this.retakePhotosBtn.addEventListener('click', () => this.retake());
-    }
-
-    updateProgress() {
-        this.photoProgress.textContent = `${this.currentPhotoIndex} / 3 photos`;
+    async handleStartFlow() {
+        // Ask camera permissions after clicking START
+        await this.startCamera();
+        if (this.stream) {
+            this.startPreviewLoop();
+            this.goToScreen('chooseLayout');
+        }
     }
 
     async startCamera() {
         try {
-            this.startCameraBtn.disabled = true;
-            this.startCameraBtn.innerHTML = '<span class="loading"></span> Starting Camera...';
-
+            if (!navigator.mediaDevices?.getUserMedia) {
+                this.showError('Camera is not supported in this browser.');
+                return;
+            }
             this.stream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    facingMode: 'user',
-                },
-                audio: false,
+                    width: { ideal: 1920 },
+                    height: { ideal: 1440 },
+                    facingMode: 'user'
+                }
             });
-
+            
             this.video.srcObject = this.stream;
             await this.video.play();
-
-            this.startCameraBtn.style.display = 'none';
-            this.takePhotoBtn.disabled = false;
         } catch (error) {
             console.error('Error accessing camera:', error);
-            this.showError('Unable to access camera. Please allow camera permissions and try again.');
-            this.startCameraBtn.disabled = false;
-            this.startCameraBtn.innerHTML = '<span class="icon">📷</span> Start Camera';
+            this.showError('Unable to access camera. If you are not on https/localhost, the browser may block camera access.');
         }
     }
 
+    startPreviewLoop() {
+        if (!this.previewCanvas || !this.capturePreview) return;
+        if (this.isPreviewLoopRunning) return;
+        this.isPreviewLoopRunning = true;
+
+        const resizeCanvas = () => {
+            const rect = this.capturePreview.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const targetW = Math.max(1, Math.round(rect.width * dpr));
+            const targetH = Math.max(1, Math.round(rect.height * dpr));
+            if (this.previewCanvas.width !== targetW || this.previewCanvas.height !== targetH) {
+                this.previewCanvas.width = targetW;
+                this.previewCanvas.height = targetH;
+            }
+        };
+
+        const tick = async () => {
+            if (!this.stream) {
+                this.isPreviewLoopRunning = false;
+                return;
+            }
+            resizeCanvas();
+
+            const ctx = this.previewCanvas.getContext('2d');
+            const w = this.previewCanvas.width;
+            const h = this.previewCanvas.height;
+            ctx.save();
+            ctx.clearRect(0, 0, w, h);
+            ctx.scale(-1, 1);
+            ctx.drawImage(this.video, -w, 0, w, h);
+            ctx.restore();
+
+            requestAnimationFrame(tick);
+        };
+
+        requestAnimationFrame(tick);
+    }
+    
     startPhotoCapture() {
-        if (this.isCountingDown || this.currentPhotoIndex >= 3) return;
-
+        if (this.isCountingDown) return;
+        if (!this.stream) return;
+        if (this.currentCaptureIndex >= this.captureCount) return;
+        
         this.isCountingDown = true;
-        this.takePhotoBtn.disabled = true;
-
+        this.captureBtn.disabled = true;
+        
         this.countdown.style.display = 'flex';
         this.countdownNumber.textContent = '3';
-
+        
         let count = 3;
         const countdownInterval = setInterval(() => {
-            count -= 1;
-            this.countdownNumber.textContent = count > 0 ? String(count) : '';
-
+            count--;
+            this.countdownNumber.textContent = count;
+            
             if (count <= 0) {
                 clearInterval(countdownInterval);
                 this.capturePhoto();
             }
         }, 1000);
     }
+    
+    capturePhoto() {
+        // Capture at the stream's real resolution (prevents blurry upscaling).
+        // Keep 4:3 aspect to match the 520x390 layout.
+        const vw = this.video.videoWidth || 1280;
+        const vh = this.video.videoHeight || 720;
+        const dstAR = 4 / 3;
+        const srcAR = vw / vh;
 
-    async capturePhoto() {
-        if (!this.kvBackground) {
-            await this.preloadAssets();
+        let cropW = vw;
+        let cropH = vh;
+        if (srcAR > dstAR) {
+            cropH = vh;
+            cropW = Math.round(cropH * dstAR);
+        } else {
+            cropW = vw;
+            cropH = Math.round(cropW / dstAR);
         }
+        const sx = Math.round((vw - cropW) / 2);
+        const sy = Math.round((vh - cropH) / 2);
 
-        this.canvas.width = PHOTO_WIDTH;
-        this.canvas.height = PHOTO_HEIGHT;
+        const targetW = cropW;
+        const targetH = cropH;
+        this.canvas.width = targetW;
+        this.canvas.height = targetH;
+        
+        const finishWithBlob = (blob) => {
+            const photoUrl = URL.createObjectURL(blob);
+            this.photoBlobs[this.currentCaptureIndex] = blob;
+            this.photoUrls[this.currentCaptureIndex] = photoUrl;
+            this.renderThumbs();
+            
+            // Hide countdown
+            this.countdown.style.display = 'none';
+            
+            // Add capture animation
+            this.video.classList.add('photo-captured');
+            setTimeout(() => {
+                this.video.classList.remove('photo-captured');
+            }, 300);
+            
+            this.currentCaptureIndex++;
 
-        try {
-            await compositeVirtualBackground(
-                this.video,
-                this.kvBackground,
-                this.canvas
-            );
-        } catch (error) {
-            console.warn('Virtual background failed, using fallback:', error);
-            const ctx = this.canvas.getContext('2d');
-            drawCover(ctx, this.kvBackground, 0, 0, PHOTO_WIDTH, PHOTO_HEIGHT);
-            drawCover(ctx, this.video, 0, 0, PHOTO_WIDTH, PHOTO_HEIGHT, true);
+            if (this.currentCaptureIndex < this.captureCount) {
+                this.captureBtn.disabled = false;
+            } else {
+                this.captureBtn.disabled = true;
+                this.retakeAllBtn.disabled = false;
+                this.continueToSelectBtn.disabled = false;
+            }
+            
+            this.isCountingDown = false;
+        };
+
+        const fallbackRaw = () => {
+            const context = this.canvas.getContext('2d');
+            context.save();
+            context.clearRect(0, 0, targetW, targetH);
+            // Mirror while cropping to 4:3
+            context.translate(targetW, 0);
+            context.scale(-1, 1);
+            context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
+            context.restore();
+
+            this.canvas.toBlob((blob) => {
+                if (!blob) return;
+                finishWithBlob(blob);
+            }, 'image/jpeg', 0.96);
+        };
+
+        // If background is available, cut out person + composite onto background (MediaPipe)
+        if (this.kvBackground) {
+            compositeVirtualBackground(this.video, this.kvBackground, this.canvas)
+                .then(() => {
+                    // PNG keeps edges cleaner on the cutout
+                    this.canvas.toBlob((blob) => {
+                        if (!blob) return;
+                        finishWithBlob(blob);
+                    }, 'image/png');
+                })
+                .catch(() => fallbackRaw());
+        } else {
+            fallbackRaw();
         }
-
-        this.canvas.toBlob(
-            (blob) => {
-                if (!blob) {
-                    this.showError('Could not capture photo. Please try again.');
-                    this.finishCaptureAttempt();
-                    return;
-                }
-
-                if (this.currentPhotoIndex === 0) {
-                    this.stripCreatedAt = new Date();
-                }
-
-                const photoUrl = this.canvas.toDataURL('image/jpeg', 0.92);
-                this.photos[this.currentPhotoIndex] = photoUrl;
-                this.displayPhoto(this.currentPhotoIndex, photoUrl);
-
-                this.countdown.style.display = 'none';
-                this.video.classList.add('photo-captured');
-                setTimeout(() => this.video.classList.remove('photo-captured'), 300);
-
-                this.currentPhotoIndex += 1;
-                this.updateProgress();
-
-                if (this.currentPhotoIndex < 3) {
-                    this.takePhotoBtn.disabled = false;
-                } else {
-                    this.takePhotoBtn.disabled = true;
-                    this.takePhotoBtn.innerHTML = '<span class="icon">✅</span> All Photos Taken';
-                    this.showResults();
-                }
-
-                this.finishCaptureAttempt();
-            },
-            'image/jpeg',
-            0.92
-        );
     }
 
-    finishCaptureAttempt() {
-        this.isCountingDown = false;
+    renderThumbs() {
+        this.thumbGrid.innerHTML = '';
+        // Only show captured photos (no empty placeholders)
+        this.photoUrls.forEach((url, idx) => {
+            if (!url) return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'thumb';
+            wrapper.innerHTML = `<img src="${url}" alt="Captured photo ${idx + 1}">`;
+            this.thumbGrid.appendChild(wrapper);
+        });
     }
 
-    displayPhoto(index, photoUrl) {
-        const slot = this.photoSlots[index];
-        slot.innerHTML = `<img src="${photoUrl}" alt="Photo ${index + 1}">`;
-        slot.classList.add('filled');
+    resetCapture() {
+        this.selectedIndices.clear();
+        this.currentCaptureIndex = 0;
+
+        this.photoBlobs.forEach((b, idx) => {
+            const url = this.photoUrls[idx];
+            if (url) URL.revokeObjectURL(url);
+        });
+        this.photoBlobs = [];
+        this.photoUrls = [];
+
+        this.finalBlob = null;
+        this.cleanupFinalPreviewUrl();
+        this.finalStripPreview.removeAttribute('src');
+
+        this.captureBtn.disabled = false;
+        this.retakeAllBtn.disabled = true;
+        this.continueToSelectBtn.disabled = true;
+        this.renderThumbs();
     }
 
-    drawStripTimestamp(ctx, stripWidth, stripHeight) {
-        const timestamp = (this.stripCreatedAt || new Date()).toLocaleString();
-        ctx.save();
-        ctx.font = '600 14px Poppins, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctx.shadowBlur = 4;
-        ctx.fillText(timestamp, stripWidth / 2, stripHeight - 14);
-        ctx.restore();
-    }
+    goToSelect() {
+        const n = this.layout;
+        this.selectedIndices.clear();
+        this.selectGrid.innerHTML = '';
 
-    async buildStripCanvas() {
-        const photoUrls = [this.photos[0], this.photos[1], this.photos[2]];
-        if (!this.frameImage || photoUrls.some((url) => !url)) {
-            throw new Error('Photos or frame not ready');
-        }
+        this.selectHint.textContent = `Select exactly ${n} photo${n === 1 ? '' : 's'}.`;
 
-        const photoImages = await Promise.all(photoUrls.map((url) => loadImage(url)));
-
-        const stripWidth = this.frameImage.naturalWidth;
-        const stripHeight = this.frameImage.naturalHeight;
-
-        const photoYPositions = [
-            STRIP_PADDING_TOP,
-            STRIP_PADDING_TOP + PHOTO_HEIGHT + STRIP_GAP,
-            STRIP_PADDING_TOP + (PHOTO_HEIGHT + STRIP_GAP) * 2,
-        ];
-
-        const stripCanvas = document.createElement('canvas');
-        stripCanvas.width = stripWidth;
-        stripCanvas.height = stripHeight;
-        const ctx = stripCanvas.getContext('2d');
-
-        ctx.drawImage(this.frameImage, 0, 0);
-
-        photoImages.forEach((img, index) => {
-            ctx.drawImage(
-                img,
-                STRIP_PADDING_SIDE,
-                photoYPositions[index],
-                PHOTO_WIDTH,
-                PHOTO_HEIGHT
-            );
+        this.photoUrls.forEach((url, idx) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'selectItem';
+            item.dataset.idx = String(idx);
+            item.innerHTML = `<img src="${url}" alt="Photo option ${idx + 1}">`;
+            item.addEventListener('click', () => this.toggleSelect(idx, item));
+            this.selectGrid.appendChild(item);
         });
 
-        this.drawStripTimestamp(ctx, stripWidth, stripHeight);
-
-        return stripCanvas;
+        this.updateConfirmState();
+        this.goToScreen('select');
     }
 
-    async showResults() {
+    toggleSelect(idx, el) {
+        const max = this.layout;
+        if (this.selectedIndices.has(idx)) {
+            this.selectedIndices.delete(idx);
+            el.classList.remove('selectItem--selected');
+            this.updateConfirmState();
+            return;
+        }
+
+        if (this.selectedIndices.size >= max) {
+            this.showError(`You can only select ${max} photo${max === 1 ? '' : 's'}.`);
+            return;
+        }
+
+        this.selectedIndices.add(idx);
+        el.classList.add('selectItem--selected');
+        this.updateConfirmState();
+    }
+
+    updateConfirmState() {
+        const max = this.layout;
+        this.confirmSelectionBtn.disabled = this.selectedIndices.size !== max;
+    }
+
+    async buildFinalStrip() {
         try {
-            const stripCanvas = await this.buildStripCanvas();
-            const blob = await new Promise((resolve) => {
-                stripCanvas.toBlob(resolve, 'image/png');
-            });
+            const indices = Array.from(this.selectedIndices.values());
+            const chosenBlobs = indices.map(i => this.photoBlobs[i]).filter(Boolean);
+            if (chosenBlobs.length !== this.layout) return;
 
-            if (!blob) throw new Error('Could not build strip');
+            const stripCanvas = document.createElement('canvas');
+            const ctx = stripCanvas.getContext('2d');
 
-            if (this.stripPreviewUrl) {
-                URL.revokeObjectURL(this.stripPreviewUrl);
+            const layout = this.layout;
+            const layoutSpec = this.getLayoutSpec(layout);
+            // Load overlay first; export should match frame size (prevents stretching)
+            const overlay = await this.loadImage(layoutSpec.overlayPath);
+            const logo = await this.loadImage('pics/LOGO INNOVATE.png');
+
+            stripCanvas.width = overlay.width;
+            stripCanvas.height = overlay.height;
+
+            // Draw the frame first, then place photos on top of the white boxes.
+            // (These frame PNGs include white-filled rectangles, not transparent cutouts.)
+            this.drawContain(ctx, overlay, 0, 0, stripCanvas.width, stripCanvas.height);
+
+            const slots = await this.getSlotsForFrame(overlay, layoutSpec);
+
+            // Draw chosen photos into slots (cover fill)
+            for (let i = 0; i < slots.length; i++) {
+                const scaledSlot = slots[i];
+                const url = URL.createObjectURL(chosenBlobs[i]);
+                const img = await this.loadImage(url);
+                URL.revokeObjectURL(url);
+
+                // The captured image already contains the virtual background (if enabled).
+                this.drawContain(ctx, img, scaledSlot.x, scaledSlot.y, scaledSlot.w, scaledSlot.h);
             }
 
-            this.stripBlob = blob;
-            this.stripPreviewUrl = URL.createObjectURL(blob);
-            this.stripPreview.src = this.stripPreviewUrl;
+            // Logo on top-left of final strip
+            ctx.save();
+            const pad = Math.max(8, Math.round(stripCanvas.width * 0.015));
+            const targetW = Math.round(stripCanvas.width * 0.14);
+            const aspect = logo.width / logo.height;
+            const targetH = Math.round(targetW / aspect);
+            ctx.drawImage(logo, pad, pad, targetW, targetH);
+            ctx.restore();
 
-            this.captureScreen.hidden = true;
-            this.resultsScreen.hidden = false;
-            this.instructions.hidden = true;
+            const blob = await new Promise((resolve) => stripCanvas.toBlob(resolve, 'image/png'));
+            this.finalBlob = blob;
+
+            const previewUrl = URL.createObjectURL(blob);
+            this.finalStripPreview.src = previewUrl;
+            // Keep preview URL alive until next restart; revoke on restartFlow/resetCapture
+
+            this.goToScreen('final');
         } catch (error) {
-            console.error('Error building strip preview:', error);
-            this.showError('Could not build your photo strip. Please try again.');
+            console.error('Error building final strip:', error);
+            this.showError('Could not build the final strip. Please try again.');
         }
     }
 
-    async downloadPhotoStrip() {
-        if (!this.stripBlob) {
-            try {
-                const stripCanvas = await this.buildStripCanvas();
-                this.stripBlob = await new Promise((resolve) => {
-                    stripCanvas.toBlob(resolve, 'image/png');
-                });
-            } catch (error) {
-                this.showError('Nothing to download yet.');
-                return;
+    getLayoutSpec(layout) {
+        if (layout === 3) {
+            // Provided spec: total 600x1700
+            const baseCanvasW = 600;
+            const baseCanvasH = 1700;
+            const top = 312.4;
+            const side = 40;
+            const gapY = 32;
+            const slotW = 520;
+            const slotH = 390;
+            const slots = [
+                { x: side, y: top + (slotH + gapY) * 0, w: slotW, h: slotH },
+                { x: side, y: top + (slotH + gapY) * 1, w: slotW, h: slotH },
+                { x: side, y: top + (slotH + gapY) * 2, w: slotW, h: slotH }
+            ];
+            return { baseCanvasW, baseCanvasH, slots, overlayPath: 'pics/F3.png', expectedSlots: 3 };
+        }
+
+        if (layout === 4) {
+            const baseCanvasW = 600;
+            const baseCanvasH = 1700;
+            const top = 111.1;
+            const side = 20.8;
+            const gapX = 18.4;
+            const gapY = 19.9;
+            const slotW = 145;
+            const slotH = 117;
+
+            // 2 columns x 2 rows
+            const x1 = side;
+            const x2 = side + slotW + gapX;
+            const y1 = top;
+            const y2 = top + slotH + gapY;
+            const slots = [
+                { x: x1, y: y1, w: slotW, h: slotH },
+                { x: x2, y: y1, w: slotW, h: slotH },
+                { x: x1, y: y2, w: slotW, h: slotH },
+                { x: x2, y: y2, w: slotW, h: slotH }
+            ];
+            // We'll detect slots from the actual frame image to ensure correct placement.
+            return { baseCanvasW, baseCanvasH, slots: null, overlayPath: 'pics/F4.png', expectedSlots: 4 };
+        }
+
+        // layout === 2
+        {
+            const baseCanvasW = 600;
+            const baseCanvasH = 1700;
+            const top = 82.2;
+            const side = 7.8;
+            const gapY = 14.1;
+            const slotW = 134;
+            const slotH = 109;
+            const slots = [
+                { x: side, y: top, w: slotW, h: slotH },
+                { x: side, y: top + slotH + gapY, w: slotW, h: slotH }
+            ];
+            // We'll detect slots from the actual frame image to ensure correct placement.
+            return { baseCanvasW, baseCanvasH, slots: null, overlayPath: 'pics/F2.png', expectedSlots: 2 };
+        }
+    }
+
+    async getSlotsForFrame(overlayImg, layoutSpec) {
+        // If explicit slots were provided, scale them to overlay size.
+        if (layoutSpec.slots && layoutSpec.baseCanvasW && layoutSpec.baseCanvasH) {
+            const scaleX = overlayImg.width / layoutSpec.baseCanvasW;
+            const scaleY = overlayImg.height / layoutSpec.baseCanvasH;
+            return layoutSpec.slots.map((s) => ({
+                x: s.x * scaleX,
+                y: s.y * scaleY,
+                w: s.w * scaleX,
+                h: s.h * scaleY,
+            }));
+        }
+
+        const key = layoutSpec.overlayPath;
+        if (this.frameSlotCache.has(key)) return this.frameSlotCache.get(key);
+
+        const slots = this.detectWhiteBoxSlots(overlayImg, layoutSpec.expectedSlots);
+        this.frameSlotCache.set(key, slots);
+        return slots;
+    }
+
+    detectWhiteBoxSlots(img, expectedCount) {
+        const w = img.width;
+        const h = img.height;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
+
+        const { data } = ctx.getImageData(0, 0, w, h);
+        const visited = new Uint8Array(w * h);
+        const isWhite = (i) => data[i] > 245 && data[i + 1] > 245 && data[i + 2] > 245 && data[i + 3] > 200;
+
+        const boxes = [];
+        const idx = (x, y) => y * w + x;
+
+        const minArea = Math.max(1500, Math.floor((w * h) * 0.003)); // ignores tiny specks
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const p = idx(x, y);
+                if (visited[p]) continue;
+                const di = p * 4;
+                if (!isWhite(di)) continue;
+
+                // Flood fill
+                let minX = x, maxX = x, minY = y, maxY = y;
+                let area = 0;
+                const stack = [p];
+                visited[p] = 1;
+
+                while (stack.length) {
+                    const cur = stack.pop();
+                    area++;
+                    const cx = cur % w;
+                    const cy = (cur / w) | 0;
+                    if (cx < minX) minX = cx;
+                    if (cx > maxX) maxX = cx;
+                    if (cy < minY) minY = cy;
+                    if (cy > maxY) maxY = cy;
+
+                    // 4-neighbors
+                    if (cx > 0) {
+                        const n = cur - 1;
+                        if (!visited[n] && isWhite(n * 4)) { visited[n] = 1; stack.push(n); }
+                    }
+                    if (cx < w - 1) {
+                        const n = cur + 1;
+                        if (!visited[n] && isWhite(n * 4)) { visited[n] = 1; stack.push(n); }
+                    }
+                    if (cy > 0) {
+                        const n = cur - w;
+                        if (!visited[n] && isWhite(n * 4)) { visited[n] = 1; stack.push(n); }
+                    }
+                    if (cy < h - 1) {
+                        const n = cur + w;
+                        if (!visited[n] && isWhite(n * 4)) { visited[n] = 1; stack.push(n); }
+                    }
+                }
+
+                if (area >= minArea) {
+                    boxes.push({
+                        x: minX,
+                        y: minY,
+                        w: (maxX - minX + 1),
+                        h: (maxY - minY + 1),
+                        area,
+                    });
+                }
             }
         }
 
-        const url = URL.createObjectURL(this.stripBlob);
+        // Keep the biggest N boxes (white rectangles)
+        boxes.sort((a, b) => b.area - a.area);
+        const top = boxes.slice(0, expectedCount);
+
+        // Sort top-to-bottom then left-to-right
+        top.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
+        // Slight inset so we don't cover borders
+        return top.map((b) => ({
+            x: b.x + 2,
+            y: b.y + 2,
+            w: Math.max(1, b.w - 4),
+            h: Math.max(1, b.h - 4),
+        }));
+    }
+
+    loadImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+            img.src = src;
+        });
+    }
+
+    drawCover(ctx, img, x, y, w, h) {
+        const imgAR = img.width / img.height;
+        const slotAR = w / h;
+        let sx = 0, sy = 0, sw = img.width, sh = img.height;
+
+        if (imgAR > slotAR) {
+            // wider: crop sides
+            sh = img.height;
+            sw = sh * slotAR;
+            sx = (img.width - sw) / 2;
+        } else {
+            // taller: crop top/bottom
+            sw = img.width;
+            sh = sw / slotAR;
+            sy = (img.height - sh) / 2;
+        }
+
+        ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+    }
+
+    drawContain(ctx, img, x, y, w, h) {
+        const imgAR = img.width / img.height;
+        const slotAR = w / h;
+        let dw = w, dh = h;
+        if (imgAR > slotAR) {
+            dh = w / imgAR;
+        } else {
+            dw = h * imgAR;
+        }
+        const dx = x + (w - dw) / 2;
+        const dy = y + (h - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+    }
+
+    downloadFinal() {
+        if (!this.finalBlob) return;
+        const url = URL.createObjectURL(this.finalBlob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `photobooth-strip-${Date.now()}.png`;
@@ -302,86 +720,113 @@ class PhotoBooth {
         URL.revokeObjectURL(url);
     }
 
-    async sharePhotoStrip() {
-        if (!this.stripBlob) {
-            this.showError('Create your strip first by taking all 3 photos.');
+    async shareFinal() {
+        if (!this.finalBlob) return;
+        if (!navigator.share) {
+            this.showError('Sharing is not supported on this device/browser. Please download instead.');
             return;
         }
 
-        const file = new File([this.stripBlob], `photobooth-strip-${Date.now()}.png`, {
-            type: 'image/png',
-        });
-
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-            try {
-                await navigator.share({
-                    title: 'My PhotoBooth Strip',
-                    text: 'Check out my photobooth strip!',
-                    files: [file],
-                });
+        try {
+            const file = new File([this.finalBlob], `photobooth-strip-${Date.now()}.png`, { type: 'image/png' });
+            if (navigator.canShare && !navigator.canShare({ files: [file] })) {
+                this.showError('Sharing files is not supported here. Please download instead.');
                 return;
-            } catch (error) {
-                if (error.name === 'AbortError') return;
             }
+            await navigator.share({ files: [file], title: 'Photostrip' });
+        } catch (error) {
+            // user cancelled is fine
+            console.warn('Share failed/cancelled:', error);
         }
-
-        await this.downloadPhotoStrip();
-        this.showError('Sharing is not supported in this browser — your strip was downloaded instead.');
     }
 
-    retake() {
-        this.photos = [];
-        this.currentPhotoIndex = 0;
-        this.stripBlob = null;
-        this.stripCreatedAt = null;
-
-        if (this.stripPreviewUrl) {
-            URL.revokeObjectURL(this.stripPreviewUrl);
-            this.stripPreviewUrl = null;
-        }
-
-        this.stripPreview.removeAttribute('src');
-
-        this.photoSlots.forEach((slot, index) => {
-            slot.innerHTML = `<div class="placeholder">Photo ${index + 1}</div>`;
-            slot.classList.remove('filled');
-        });
-
-        this.takePhotoBtn.disabled = !this.stream;
-        this.takePhotoBtn.innerHTML = '<span class="icon">⚡</span> Take Photo';
-        this.updateProgress();
-
-        this.resultsScreen.hidden = true;
-        this.captureScreen.hidden = false;
-        this.instructions.hidden = false;
+    restartFlow() {
+        this.cleanupFinalPreviewUrl();
+        this.resetCapture();
+        this.layout = null;
+        this.goToScreen('chooseLayout');
     }
 
+    cleanupFinalPreviewUrl() {
+        const src = this.finalStripPreview.getAttribute('src');
+        if (src && src.startsWith('blob:')) URL.revokeObjectURL(src);
+    }
+
+    restartAll() {
+        this.cleanupFinalPreviewUrl();
+        this.resetCapture();
+        this.layout = null;
+        this.goToScreen('start');
+    }
+    
     showError(message) {
+        // Create error notification
         const notification = document.createElement('div');
-        notification.className = 'toast-error';
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff4757;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+            font-family: 'Poppins', sans-serif;
+            max-width: 300px;
+        `;
         notification.textContent = message;
+        
         document.body.appendChild(notification);
-
+        
+        // Remove after 5 seconds
         setTimeout(() => {
-            notification.remove();
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
         }, 5000);
     }
-
+    
+    // Cleanup method
     cleanup() {
         if (this.stream) {
-            this.stream.getTracks().forEach((track) => track.stop());
+            this.stream.getTracks().forEach(track => track.stop());
         }
-
-        if (this.stripPreviewUrl) {
-            URL.revokeObjectURL(this.stripPreviewUrl);
-        }
+        this.isPreviewLoopRunning = false;
+        
+        this.cleanupFinalPreviewUrl();
+        this.photoUrls.forEach(url => {
+            if (url) URL.revokeObjectURL(url);
+        });
     }
 }
 
+// Initialize the photobooth when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     const photobooth = new PhotoBooth();
-
+    
+    // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
         photobooth.cleanup();
     });
 });
+
+// Add some fun sound effects (optional)
+function playShutterSound() {
+    // Create a simple beep sound
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+    
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.1);
+} 

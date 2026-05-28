@@ -2,96 +2,122 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PhotoBooth - Capture Your Memories</title>
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📸 PhotoBooth</h1>
-            <p>Capture your memories in style!</p>
-        </header>
+    <div id="app" class="app">
+        <!-- Screen A: Start -->
+        <section id="screenStart" class="screen screen--active screen--start" aria-label="Start screen">
+            <div class="screenStart__overlay">
+                <div
+                    id="startPanelWrap"
+                    class="screenStart__panelWrap"
+                    data-btn-x="208.2"
+                    data-btn-y="1042.1"
+                    data-btn-w="474.4"
+                    data-btn-h="208"
+                >
+                    <img id="startPanelImg" class="screenStart__panel" src="pics/startCamera.png" alt="Start panel">
+                    <button id="startFlow" class="startButton" type="button">START</button>
+                </div>
+            </div>
+        </section>
 
-        <main>
-            <!-- Capture flow -->
-            <section id="captureScreen" class="capture-screen">
-                <div class="camera-section">
-                    <div class="camera-wrapper">
-                        <div class="camera-bg" aria-hidden="true"></div>
-                        <video id="video" autoplay playsinline muted></video>
-                        <canvas id="canvas" class="hidden-canvas"></canvas>
+        <!-- Screen B: Choose layout -->
+        <section id="screenChooseLayout" class="screen" aria-label="Choose layout screen">
+            <div class="screenCard">
+                <h2 class="screenTitle">Choose your frame</h2>
+
+                <div class="layoutChoices" role="list">
+                    <button class="layoutChoice" type="button" data-layout="2" aria-label="Choose 2 pictures layout">
+                        <img src="pics/2pics.png" alt="2 pictures layout preview">
+                    </button>
+                    <button class="layoutChoice" type="button" data-layout="3" aria-label="Choose 3 pictures layout">
+                        <img src="pics/3pics.png" alt="3 pictures layout preview">
+                    </button>
+                    <button class="layoutChoice" type="button" data-layout="4" aria-label="Choose 4 pictures layout">
+                        <img src="pics/4pics.png" alt="4 pictures layout preview">
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Screen C: Capture -->
+        <section id="screenCapture" class="screen" aria-label="Capture screen">
+            <div class="captureWrap">
+                <div
+                    id="capturePanelWrap"
+                    class="capturePanel"
+                    data-panel-w="483.7"
+                    data-panel-h="847.4"
+                    data-preview-w="390.9"
+                    data-preview-h="519.8"
+                    data-preview-x="38.9"
+                    data-preview-y="78"
+                >
+                    <img id="capturePanelImg" class="capturePanel__img" src="pics/startCamera.png" alt="Capture panel">
+
+                    <!-- Hidden video source -->
+                    <video id="video" autoplay playsinline muted class="srOnly"></video>
+
+                    <!-- Preview canvas (shows either raw video or segmentation preview) -->
+                    <div id="capturePreview" class="capturePanel__preview" aria-label="Camera preview">
+                        <canvas id="previewCanvas"></canvas>
 
                         <div id="countdown" class="countdown-overlay">
                             <div class="countdown-number">3</div>
                         </div>
                     </div>
 
-                    <div class="camera-controls">
-                        <button id="startCamera" class="btn btn-primary" type="button">
-                            <span class="icon">📷</span>
-                            Start Camera
-                        </button>
-                        <button id="takePhoto" class="btn btn-secondary" type="button" disabled>
-                            <span class="icon">⚡</span>
-                            Take Photo
-                        </button>
-                    </div>
+                    <button id="capturePhoto" class="captureButton" type="button" disabled>CAPTURE</button>
                 </div>
 
-                <div class="photo-frame">
-                    <h2>Your Photo Strip</h2>
-                    <div class="frame-container">
-                        <div class="photo-slot" id="photo1">
-                            <div class="placeholder">Photo 1</div>
-                        </div>
-                        <div class="photo-slot" id="photo2">
-                            <div class="placeholder">Photo 2</div>
-                        </div>
-                        <div class="photo-slot" id="photo3">
-                            <div class="placeholder">Photo 3</div>
-                        </div>
-                    </div>
-                    <p class="photo-progress" id="photoProgress">0 / 3 photos</p>
-                </div>
-            </section>
+                <canvas id="canvas" style="display: none;"></canvas>
 
-            <!-- Results flow -->
-            <section id="resultsScreen" class="results-screen" hidden>
-                <h2>Your strip is ready!</h2>
-                <div class="strip-preview-wrap">
-                    <img id="stripPreview" alt="Your photo strip preview">
-                </div>
-                <div class="action-buttons results-actions">
-                    <button id="downloadStrip" class="btn btn-success" type="button">
-                        <span class="icon">💾</span>
-                        Download
-                    </button>
-                    <button id="shareStrip" class="btn btn-primary" type="button">
-                        <span class="icon">📤</span>
-                        Share
-                    </button>
-                    <button id="retakePhotos" class="btn btn-danger" type="button">
-                        <span class="icon">🔄</span>
-                        Retake
-                    </button>
-                </div>
-            </section>
-        </main>
+                <div class="thumbGrid" id="thumbGrid" aria-label="Captured photos thumbnails"></div>
 
-        <div class="instructions" id="instructions">
-            <h3>How to use:</h3>
-            <ol>
-                <li>Tap <strong>Start Camera</strong> and allow camera access</li>
-                <li>Position yourself in the frame</li>
-                <li>Tap <strong>Take Photo</strong> — 3 second countdown</li>
-                <li>Take all 3 photos, then download or share your strip</li>
-            </ol>
-        </div>
+                <div class="actionRow">
+                    <button id="retakeAll" class="btn btn-danger" type="button" disabled>Retake all 6</button>
+                    <button id="continueToSelect" class="btn btn-success" type="button" disabled>Confirm & choose</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Screen E: Select photos -->
+        <section id="screenSelect" class="screen" aria-label="Select photos screen">
+            <div class="screenCard screenCard--wide">
+                <h2 class="screenTitle">Select your pictures</h2>
+                <p id="selectHint" class="screenSubtitle"></p>
+
+                <div class="selectGrid" id="selectGrid" aria-label="Select photos"></div>
+
+                <div class="actionRow">
+                    <button id="backToCapture" class="btn btn-secondary" type="button">Back</button>
+                    <button id="confirmSelection" class="btn btn-primary" type="button" disabled>Confirm</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Screen F: Final -->
+        <section id="screenFinal" class="screen" aria-label="Final strip screen">
+            <div class="screenCard screenCard--wide">
+                <h2 class="screenTitle">SHARE YOUR MOMENT</h2>
+
+                <div class="finalPreview">
+                    <img id="finalStripPreview" alt="Final photostrip preview">
+                </div>
+
+                <div class="actionRow actionRow--wrap">
+                    <button id="downloadFinal" class="btn btn-success" type="button">Download</button>
+                    <button id="shareFinal" class="btn btn-primary" type="button">Share</button>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script type="module" src="js/photobooth.js"></script>
 </body>
-</html>
+</html> 
