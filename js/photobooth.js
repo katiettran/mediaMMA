@@ -9,8 +9,7 @@ class PhotoBooth {
         this.capturePanelWrap = document.getElementById('capturePanelWrap');
         this.capturePanelImg = document.getElementById('capturePanelImg');
         this.capturePreview = document.getElementById('capturePreview');
-        this.countdown = document.getElementById('countdown');
-        this.countdownNumber = this.countdown.querySelector('.countdown-number');
+
 
         // Screens
         this.screens = {
@@ -49,7 +48,6 @@ class PhotoBooth {
         this.photoUrls = [];
 
         this.selectedIndices = new Set();
-        this.isCountingDown = false;
         this.finalBlob = null;
         this.isPreviewLoopRunning = false;
         this.frameSlotCache = new Map();
@@ -252,26 +250,14 @@ class PhotoBooth {
     }
     
     startPhotoCapture() {
-        if (this.isCountingDown) return;
         if (!this.stream) return;
         if (this.currentCaptureIndex >= this.captureCount) return;
         
-        this.isCountingDown = true;
         this.captureBtn.disabled = true;
         
-        this.countdown.style.display = 'flex';
-        this.countdownNumber.textContent = '3';
+
+        this.capturePhoto();
         
-        let count = 3;
-        const countdownInterval = setInterval(() => {
-            count--;
-            this.countdownNumber.textContent = count;
-            
-            if (count <= 0) {
-                clearInterval(countdownInterval);
-                this.capturePhoto();
-            }
-        }, 1000);
     }
     
     capturePhoto() {
@@ -305,8 +291,6 @@ class PhotoBooth {
             this.photoUrls[this.currentCaptureIndex] = photoUrl;
             this.renderThumbs();
             
-            // Hide countdown
-            this.countdown.style.display = 'none';
             
             // Add capture animation
             this.video.classList.add('photo-captured');
@@ -324,7 +308,6 @@ class PhotoBooth {
                 this.continueToSelectBtn.style.display = 'flex';
             }
             
-            this.isCountingDown = false;
         };
 
         const fallbackRaw = () => {
@@ -810,22 +793,3 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Add some fun sound effects 
-function playShutterSound() {
-    // Create a simple beep sound
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-    oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-    
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.1);
-} 
