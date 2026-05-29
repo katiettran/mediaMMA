@@ -41,7 +41,7 @@ class PhotoBooth {
         this.stream = null;
 
         this.layout = null; // 2 | 3 | 4
-        this.captureCount = 6;
+        this.captureCount = 4;
         this.currentCaptureIndex = 0;
 
         // Store as blobs (for share) + objectURLs (for display)
@@ -174,7 +174,7 @@ class PhotoBooth {
     goToScreen(screenKey) {
         Object.values(this.screens).forEach((el) => el.classList.remove('screen--active'));
         if (this.screens[screenKey]) this.screens[screenKey].classList.add('screen--active');
-
+        window.scrollTo(0, 0);
         if (screenKey === 'capture') {
             this.renderThumbs();
             // Ensure preview loop is running on capture screen
@@ -320,8 +320,8 @@ class PhotoBooth {
                 this.captureBtn.disabled = false;
             } else {
                 this.captureBtn.disabled = true;
-                this.retakeAllBtn.disabled = false;
-                this.continueToSelectBtn.disabled = false;
+                this.retakeAllBtn.style.display = 'flex';
+                this.continueToSelectBtn.style.display = 'flex';
             }
             
             this.isCountingDown = false;
@@ -387,8 +387,8 @@ class PhotoBooth {
         this.finalStripPreview.removeAttribute('src');
 
         this.captureBtn.disabled = false;
-        this.retakeAllBtn.disabled = true;
-        this.continueToSelectBtn.disabled = true;
+        this.retakeAllBtn.style.display = 'none';
+        this.continueToSelectBtn.style.display = 'none';
         this.renderThumbs();
     }
 
@@ -469,17 +469,8 @@ class PhotoBooth {
                 URL.revokeObjectURL(url);
 
                 // The captured image already contains the virtual background (if enabled).
-                this.drawContain(ctx, img, scaledSlot.x, scaledSlot.y, scaledSlot.w, scaledSlot.h);
+                this.drawCover(ctx, img, scaledSlot.x, scaledSlot.y, scaledSlot.w, scaledSlot.h);
             }
-
-            // Logo on top-left of final strip
-            ctx.save();
-            const pad = Math.max(8, Math.round(stripCanvas.width * 0.015));
-            const targetW = Math.round(stripCanvas.width * 0.14);
-            const aspect = logo.width / logo.height;
-            const targetH = Math.round(targetW / aspect);
-            ctx.drawImage(logo, pad, pad, targetW, targetH);
-            ctx.restore();
 
             const blob = await new Promise((resolve) => stripCanvas.toBlob(resolve, 'image/png'));
             this.finalBlob = blob;
@@ -498,13 +489,13 @@ class PhotoBooth {
     getLayoutSpec(layout) {
         if (layout === 3) {
             // Provided spec: total 600x1700
-            const baseCanvasW = 600;
+            const baseCanvasW = 750;
             const baseCanvasH = 1700;
-            const top = 312.4;
-            const side = 40;
-            const gapY = 32;
-            const slotW = 520;
-            const slotH = 390;
+            const top = 271.4;
+            const side = 28.8;
+            const gapY = 50;
+            const slotW = 692.3;
+            const slotH = 399.6;
             const slots = [
                 { x: side, y: top + (slotH + gapY) * 0, w: slotW, h: slotH },
                 { x: side, y: top + (slotH + gapY) * 1, w: slotW, h: slotH },
@@ -514,14 +505,14 @@ class PhotoBooth {
         }
 
         if (layout === 4) {
-            const baseCanvasW = 600;
-            const baseCanvasH = 1700;
-            const top = 111.1;
-            const side = 20.8;
-            const gapX = 18.4;
-            const gapY = 19.9;
-            const slotW = 145;
-            const slotH = 117;
+            const baseCanvasW = 750;
+            const baseCanvasH = 750;
+            const top = 238.4;
+            const side = 34.9;
+            const gapX = 28;
+            const gapY = 35;
+            const slotW = 324.8;
+            const slotH = 177.6;
 
             // 2 columns x 2 rows
             const x1 = side;
@@ -540,13 +531,13 @@ class PhotoBooth {
 
         // layout === 2
         {
-            const baseCanvasW = 600;
-            const baseCanvasH = 1700;
-            const top = 82.2;
-            const side = 7.8;
-            const gapY = 14.1;
-            const slotW = 134;
-            const slotH = 109;
+            const baseCanvasW = 550;
+            const baseCanvasH = 950;
+            const top = 210.7;
+            const side = 33.3;
+            const gapY = 23.8;
+            const slotW = 483.4;
+            const slotH = 272.3;
             const slots = [
                 { x: side, y: top, w: slotW, h: slotH },
                 { x: side, y: top + slotH + gapY, w: slotW, h: slotH }
@@ -577,6 +568,9 @@ class PhotoBooth {
         return slots;
     }
 
+    /*async getSlotsForFrame(overlayImg, layoutSpec) {
+        return layoutSpec.slots;
+    } */
     detectWhiteBoxSlots(img, expectedCount) {
         const w = img.width;
         const h = img.height;
@@ -811,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Add some fun sound effects (optional)
+// Add some fun sound effects 
 function playShutterSound() {
     // Create a simple beep sound
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();

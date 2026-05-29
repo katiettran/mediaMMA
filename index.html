@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <img src="pics/LOGO INNOVATE.png" class="screenLogo">
     <div id="app" class="app">
         <!-- Screen A: Start -->
         <section id="screenStart" class="screen screen--active screen--start" aria-label="Start screen">
@@ -33,13 +34,13 @@
 
                 <div class="layoutChoices" role="list">
                     <button class="layoutChoice" type="button" data-layout="2" aria-label="Choose 2 pictures layout">
-                        <img src="pics/2pics.png" alt="2 pictures layout preview">
+                        <img src="pics/F2.png" alt="2 pictures layout preview">
                     </button>
                     <button class="layoutChoice" type="button" data-layout="3" aria-label="Choose 3 pictures layout">
-                        <img src="pics/3pics.png" alt="3 pictures layout preview">
+                        <img src="pics/F3.png" alt="3 pictures layout preview">
                     </button>
                     <button class="layoutChoice" type="button" data-layout="4" aria-label="Choose 4 pictures layout">
-                        <img src="pics/4pics.png" alt="4 pictures layout preview">
+                        <img src="pics/F4.png" alt="4 pictures layout preview">
                     </button>
                 </div>
             </div>
@@ -76,13 +77,15 @@
                 </div>
 
                 <canvas id="canvas" style="display: none;"></canvas>
+            <div class="captureRight">                    
 
                 <div class="thumbGrid" id="thumbGrid" aria-label="Captured photos thumbnails"></div>
 
                 <div class="actionRow">
-                    <button id="retakeAll" class="btn btn-danger" type="button" disabled>Retake all 6</button>
-                    <button id="continueToSelect" class="btn btn-success" type="button" disabled>Confirm & choose</button>
+                    <button id="retakeAll" class="btn btn-danger" type="button" style="display:none">Retake</button>
+                    <button id="continueToSelect" class="btn btn-success" type="button" style="display:none">Confirm & choose</button>
                 </div>
+            </div>    
             </div>
         </section>
 
