@@ -238,7 +238,7 @@ body {
 }
 
 .captureButton:disabled { opacity: 0.5; cursor: not-allowed; }
-.captureButton:active { transform: translate(-50%, -50%) translateY(26px); }
+.captureButton:active { transform: translate(-50%, -50%) translateY(9px); }
 
 /* Countdown */
 .countdown-overlay {
