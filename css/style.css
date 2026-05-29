@@ -31,7 +31,7 @@ body {
 .screenCard {
   width: min(920px, 100%);
   margin: 0 auto;
-  padding: 70px;
+  padding: 20px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
@@ -224,7 +224,7 @@ body {
   left: 47%;
   top: 78%;
   transform: translate(-50%, -50%) translateY(25px);
-  width: min(120px, 10vw);
+  width: min(120px, 30vw);
   height: 50px;
   border: 0;
   border-radius: 100px;
