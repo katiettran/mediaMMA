@@ -223,7 +223,7 @@ body {
   position: absolute;
   left: 47%;
   top: 78%;
-  transform: translate(-50%, -50%) translateY(15px);
+  transform: translate(-50%, -50%) translateY(8px);
   width: min(90px, 25vw);
   height: 38px;
   border: 0;
