@@ -450,14 +450,19 @@ class PhotoBooth {
             const layoutSpec = this.getLayoutSpec(layout);
             // Load overlay first; export should match frame size (prevents stretching)
             const overlay = await this.loadImage(layoutSpec.overlayPath);
+            const EXPORT_SCALE = 3;
             const logo = await this.loadImage('pics/LOGO INNOVATE.png');
 
-            stripCanvas.width = overlay.width;
-            stripCanvas.height = overlay.height;
+            stripCanvas.width = overlay.width * EXPORT_SCALE;
+            stripCanvas.height = overlay.height * EXPORT_SCALE;
+
+
+            ctx.setTransform(EXPORT_SCALE, 0, 0, EXPORT_SCALE, 0, 0);
 
             // Draw the frame first, then place photos on top of the white boxes.
             // (These frame PNGs include white-filled rectangles, not transparent cutouts.)
-            this.drawContain(ctx, overlay, 0, 0, stripCanvas.width, stripCanvas.height);
+            //this.drawContain(ctx, overlay, 0, 0, stripCanvas.width, stripCanvas.height);
+            this.drawContain(ctx, overlay, 0, 0, overlay.width, overlay.height);
 
             const slots = await this.getSlotsForFrame(overlay, layoutSpec);
 
