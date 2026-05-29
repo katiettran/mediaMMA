@@ -224,11 +224,11 @@ body {
   left: 47%;
   top: 78%;
   transform: translate(-50%, -50%) translateY(25px);
-  width: min(120px, 30vw);
-  height: 50px;
+  width: min(90px, 25vw);
+  height: 38px;
   border: 0;
   border-radius: 100px;
-  font-size: 1.05rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: #464544;
