@@ -427,5 +427,9 @@ body {
   .countdown-overlay { width: 120px; height: 120px; }
   .countdown-number { font-size: 3rem; }
   .captureWrap { grid-template-columns: 1fr; height: auto; }
-  .capturePanel { width: min(280px, 70vw); }
+  .capturePanel { width: min(200px, 45vw); }
+   #screenChooseLayout .screenTitle { font-size: 1.1rem; }
+   #screenChooseLayout { padding: 16px; gap: 16px; }
+  .layoutChoice { max-width: 28vw; }
+
 }
