@@ -6,40 +6,37 @@ class PhotoBooth {
         this.canvas = document.getElementById('canvas');
         // Capture panel preview (overlay inside capture PNG)
         this.previewCanvas = document.getElementById('previewCanvas');
-        this.capturePanelWrap = document.getElementById('capturePanelWrap');
-        this.capturePanelImg = document.getElementById('capturePanelImg');
         this.capturePreview = document.getElementById('capturePreview');
 
 
         // Screens
         this.screens = {
             start: document.getElementById('screenStart'),
-            chooseLayout: document.getElementById('screenChooseLayout'),
             capture: document.getElementById('screenCapture'),
             select: document.getElementById('screenSelect'),
             final: document.getElementById('screenFinal')
         };
+
+        this.captureCountEl = document.getElementById('captureCount');
+
 
         // Buttons / UI
         this.startFlowBtn = document.getElementById('startFlow');
         this.startPanelWrap = document.getElementById('startPanelWrap');
         this.startPanelImg = document.getElementById('startPanelImg');
         this.captureBtn = document.getElementById('capturePhoto');
-        this.retakeAllBtn = document.getElementById('retakeAll');
-        this.continueToSelectBtn = document.getElementById('continueToSelect');
         this.backToCaptureBtn = document.getElementById('backToCapture');
         this.confirmSelectionBtn = document.getElementById('confirmSelection');
         this.downloadFinalBtn = document.getElementById('downloadFinal');
         this.shareFinalBtn = document.getElementById('shareFinal');
 
-        this.thumbGrid = document.getElementById('thumbGrid');
         this.selectGrid = document.getElementById('selectGrid');
         this.selectHint = document.getElementById('selectHint');
         this.finalStripPreview = document.getElementById('finalStripPreview');
 
         this.stream = null;
 
-        this.layout = null; // 2 | 3 | 4
+        this.layout = 1; // 2 | 3 | 4
         this.captureCount = 4;
         this.currentCaptureIndex = 0;
 
@@ -56,7 +53,6 @@ class PhotoBooth {
         this.initializeEventListeners();
         this.goToScreen('start');
         this.setupStartButtonPlacement();
-        this.setupCapturePreviewPlacement();
         this.preloadKvBackground();
     }
 
@@ -72,60 +68,15 @@ class PhotoBooth {
     initializeEventListeners() {
         this.startFlowBtn.addEventListener('click', () => this.handleStartFlow());
 
-        document.querySelectorAll('.layoutChoice').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const layout = Number(btn.dataset.layout);
-                if (![2,3,4].includes(layout)) return;
-                this.layout = layout;
-                this.goToScreen('capture');
-                this.captureBtn.disabled = false;
-            });
-        });
-
         this.captureBtn.addEventListener('click', () => this.startPhotoCapture());
-        this.retakeAllBtn.addEventListener('click', () => this.resetCapture());
-        this.continueToSelectBtn.addEventListener('click', () => this.goToSelect());
-        this.backToCaptureBtn.addEventListener('click', () => this.goToScreen('capture'));
-        this.confirmSelectionBtn.addEventListener('click', () => this.buildFinalStrip());
+        this.backToCaptureBtn.addEventListener('click', () => {
+        this.resetCapture();
+        this.goToScreen('capture');
+        });
+            this.confirmSelectionBtn.addEventListener('click', () => this.buildFinalStrip());
 
         this.downloadFinalBtn.addEventListener('click', () => this.downloadFinal());
         this.shareFinalBtn.addEventListener('click', () => this.shareFinal());
-    }
-
-    setupCapturePreviewPlacement() {
-        const apply = () => {
-            if (!this.capturePanelWrap || !this.capturePanelImg || !this.capturePreview) return;
-            const iw = this.capturePanelImg.naturalWidth;
-            const ih = this.capturePanelImg.naturalHeight;
-            if (!iw || !ih) return;
-
-            const panelW = Number(this.capturePanelWrap.dataset.panelW);
-            const panelH = Number(this.capturePanelWrap.dataset.panelH);
-            const previewW = Number(this.capturePanelWrap.dataset.previewW);
-            const previewH = Number(this.capturePanelWrap.dataset.previewH);
-            const previewX = Number(this.capturePanelWrap.dataset.previewX);
-            const previewY = Number(this.capturePanelWrap.dataset.previewY);
-
-            if (![panelW, panelH, previewW, previewH, previewX, previewY].every((n) => Number.isFinite(n))) return;
-
-            // Convert from your provided panel coordinate system -> actual image pixels
-            const scaleX = iw / panelW;
-            const scaleY = ih / panelH;
-
-            const xPct = ((previewX * scaleX) / iw) * 100;
-            const yPct = ((previewY * scaleY) / ih) * 100;
-            const wPct = ((previewW * scaleX) / iw) * 100;
-            const hPct = ((previewH * scaleY) / ih) * 100;
-
-            this.capturePreview.style.left = `${xPct}%`;
-            this.capturePreview.style.top = `${yPct}%`;
-            this.capturePreview.style.width = `${wPct}%`;
-            this.capturePreview.style.height = `${hPct}%`;
-        };
-
-        if (this.capturePanelImg?.complete) apply();
-        this.capturePanelImg?.addEventListener('load', apply, { once: true });
-        window.addEventListener('resize', apply);
     }
 
     setupStartButtonPlacement() {
@@ -170,11 +121,10 @@ class PhotoBooth {
     }
     
     goToScreen(screenKey) {
-        Object.values(this.screens).forEach((el) => el.classList.remove('screen--active'));
+        Object.values(this.screens).forEach((el) => { if (el) el.classList.remove('screen--active'); });        
         if (this.screens[screenKey]) this.screens[screenKey].classList.add('screen--active');
         window.scrollTo(0, 0);
         if (screenKey === 'capture') {
-            this.renderThumbs();
             // Ensure preview loop is running on capture screen
             if (this.stream) this.startPreviewLoop();
         }
@@ -185,7 +135,8 @@ class PhotoBooth {
         await this.startCamera();
         if (this.stream) {
             this.startPreviewLoop();
-            this.goToScreen('chooseLayout');
+            this.captureBtn.disabled = false;
+            this.goToScreen('capture');         
         }
     }
 
@@ -289,7 +240,6 @@ class PhotoBooth {
             const photoUrl = URL.createObjectURL(blob);
             this.photoBlobs[this.currentCaptureIndex] = blob;
             this.photoUrls[this.currentCaptureIndex] = photoUrl;
-            this.renderThumbs();
             
             
             // Add capture animation
@@ -301,13 +251,12 @@ class PhotoBooth {
             this.currentCaptureIndex++;
 
             if (this.currentCaptureIndex < this.captureCount) {
+                this.captureCountEl.textContent = `${this.currentCaptureIndex} / 4`;
                 this.captureBtn.disabled = false;
             } else {
-                this.captureBtn.disabled = true;
-                this.retakeAllBtn.style.display = 'flex';
-                this.continueToSelectBtn.style.display = 'flex';
+                this.goToSelect();
             }
-            
+                        
         };
 
         const fallbackRaw = () => {
@@ -355,6 +304,7 @@ class PhotoBooth {
     }
 
     resetCapture() {
+        this.captureCountEl.textContent = '0 / 4';
         this.selectedIndices.clear();
         this.currentCaptureIndex = 0;
 
@@ -370,9 +320,7 @@ class PhotoBooth {
         this.finalStripPreview.removeAttribute('src');
 
         this.captureBtn.disabled = false;
-        this.retakeAllBtn.style.display = 'none';
-        this.continueToSelectBtn.style.display = 'none';
-        this.renderThumbs();
+
     }
 
     goToSelect() {
@@ -380,7 +328,7 @@ class PhotoBooth {
         this.selectedIndices.clear();
         this.selectGrid.innerHTML = '';
 
-        this.selectHint.textContent = `Select exactly ${n} photo${n === 1 ? '' : 's'}.`;
+        this.selectHint.textContent = `Select your favorite photo.`;
 
         this.photoUrls.forEach((url, idx) => {
             const item = document.createElement('button');
@@ -430,7 +378,7 @@ class PhotoBooth {
             const ctx = stripCanvas.getContext('2d');
 
             const layout = this.layout;
-            const layoutSpec = this.getLayoutSpec(layout);
+            const layoutSpec = this.getLayoutSpec();            
             // Load overlay first; export should match frame size (prevents stretching)
             const overlay = await this.loadImage(layoutSpec.overlayPath);
             const EXPORT_SCALE = 3;
@@ -474,67 +422,15 @@ class PhotoBooth {
         }
     }
 
-    getLayoutSpec(layout) {
-        if (layout === 3) {
-            // Provided spec: total 600x1700
-            const baseCanvasW = 750;
-            const baseCanvasH = 1700;
-            const top = 271.4;
-            const side = 28.8;
-            const gapY = 50;
-            const slotW = 692.3;
-            const slotH = 399.6;
-            const slots = [
-                { x: side, y: top + (slotH + gapY) * 0, w: slotW, h: slotH },
-                { x: side, y: top + (slotH + gapY) * 1, w: slotW, h: slotH },
-                { x: side, y: top + (slotH + gapY) * 2, w: slotW, h: slotH }
-            ];
-            return { baseCanvasW, baseCanvasH, slots, overlayPath: 'pics/F3.png', expectedSlots: 3 };
-        }
-
-        if (layout === 4) {
-            const baseCanvasW = 750;
-            const baseCanvasH = 750;
-            const top = 238.4;
-            const side = 34.9;
-            const gapX = 28;
-            const gapY = 35;
-            const slotW = 324.8;
-            const slotH = 177.6;
-
-            // 2 columns x 2 rows
-            const x1 = side;
-            const x2 = side + slotW + gapX;
-            const y1 = top;
-            const y2 = top + slotH + gapY;
-            const slots = [
-                { x: x1, y: y1, w: slotW, h: slotH },
-                { x: x2, y: y1, w: slotW, h: slotH },
-                { x: x1, y: y2, w: slotW, h: slotH },
-                { x: x2, y: y2, w: slotW, h: slotH }
-            ];
-            // We'll detect slots from the actual frame image to ensure correct placement.
-            return { baseCanvasW, baseCanvasH, slots: null, overlayPath: 'pics/F4.png', expectedSlots: 4 };
-        }
-
-        // layout === 2
-        {
-            const baseCanvasW = 550;
-            const baseCanvasH = 950;
-            const top = 210.7;
-            const side = 33.3;
-            const gapY = 23.8;
-            const slotW = 483.4;
-            const slotH = 272.3;
-            const slots = [
-                { x: side, y: top, w: slotW, h: slotH },
-                { x: side, y: top + slotH + gapY, w: slotW, h: slotH }
-            ];
-            // We'll detect slots from the actual frame image to ensure correct placement.
-            return { baseCanvasW, baseCanvasH, slots: null, overlayPath: 'pics/F2.png', expectedSlots: 2 };
-        }
+    getLayoutSpec() {
+        return {
+            baseCanvasW: 3429,
+            baseCanvasH: 2706,
+            slots: [{ x: 132.9, y: 678.8, w: 3163.3, h: 1779.4 }],
+            overlayPath: 'pics/1F.svg',
+            expectedSlots: 1
+        };
     }
-
     async getSlotsForFrame(overlayImg, layoutSpec) {
         // If explicit slots were provided, scale them to overlay size.
         if (layoutSpec.slots && layoutSpec.baseCanvasW && layoutSpec.baseCanvasH) {
@@ -725,8 +621,8 @@ class PhotoBooth {
     restartFlow() {
         this.cleanupFinalPreviewUrl();
         this.resetCapture();
-        this.layout = null;
-        this.goToScreen('chooseLayout');
+        this.layout = 1;
+        this.goToScreen('capture');
     }
 
     cleanupFinalPreviewUrl() {
@@ -737,7 +633,7 @@ class PhotoBooth {
     restartAll() {
         this.cleanupFinalPreviewUrl();
         this.resetCapture();
-        this.layout = null;
+        this.layout = 1;
         this.goToScreen('start');
     }
     

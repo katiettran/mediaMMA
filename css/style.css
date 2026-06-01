@@ -29,7 +29,7 @@ body {
 .screen--active { display: flex; }
 
 .screenCard {
-  width: min(920px, 100%);
+  width: min(1100px, 100%);
   margin: 0 auto;
   padding: 20px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
@@ -56,7 +56,7 @@ body {
 .screenStart__overlay {
   min-height: 100vh;
   display: grid;
-  place-items: end center;
+  place-items: center;
   padding: 24px 16px 48px;
 }
 
@@ -74,14 +74,14 @@ body {
   width: auto;
   max-width: 92vw;
   height: auto;
-  max-height: 70vh;
+  max-height: 80vh;
   display: block;
 }
 
 .startButton {
   position: absolute;
   left: 50%;
-  top: 56%;
+  top: 50%;
   transform: translate(-50%, -50%) translate(-15px, -40px) scale(0.5);
   width: min(260px, 72%);
   height: 56px;
@@ -113,104 +113,29 @@ body {
   border: 0 !important;
 }
 
-/* Screen B: Choose layout */
-#screenChooseLayout {
-  /*display: flex;*/
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 24px;
-  gap: 40px;
-}
 
+/* Screen B: Capture */
 #screenCapture.screen--active {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-#screenChooseLayout .screenTitle {
-  color: rgba(255,255,255,0.92);
-  text-shadow: 0 2px 8px rgba(0,0,0,0.45);
-  margin: 0;
-}
-
-.layoutChoices {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: 24px;
-  width: 100%;
-}
-
-.layoutChoice {
-  border: 0;
   padding: 0;
-  background: transparent;
-  cursor: pointer;
-  flex: 1;
-  max-width: 32vw;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
-.layoutChoice img {
-  width: 100%;
-  height: auto;
-  max-height: 78vh;
-  object-fit: contain;
-  display: block;
-  border-radius: 0;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.layoutChoice:hover img { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(0,0,0,0.22); }
-.layoutChoice:active img { transform: scale(0.99); }
-
-/* Screen C: Capture */
 .captureWrap {
-  width: min(1024px, 100%);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  width: 100vw;
   height: 100vh;
 }
 
-.captureRight {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 14px;
-}
-
-.capturePanel {
-  position: relative;
-  width: min(343px, 40vw);
-  margin: 0 auto;
-  border-radius: 45px;
-  overflow: hidden;
-  filter: drop-shadow(0 12px 30px rgba(0,0,0,0.35));
-}
-
-.capturePanel__img {
+.captureLeft {
   width: 100%;
-  height: auto;
-  display: block;
+  height: 100%;
 }
 
 .capturePanel__preview {
   position: absolute;
-  overflow: hidden;
-  border-radius: 24px;
+  inset: 0;
   background: #111;
+  overflow: hidden;
+  z-index: 1;
 }
 
 .capturePanel__preview canvas {
@@ -221,27 +146,36 @@ body {
 
 .captureButton {
   position: absolute;
-  left: 47%;
-  top: 78%;
-  transform: translate(-50%, -50%) translateY(8px);
-  width: min(90px, 25vw);
-  height: 38px;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 44px;
   border: 0;
   border-radius: 100px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: #464544;
   background: linear-gradient(180deg, #ffffff 0%, #9c9993 55%, #f5efe6 100%);
-  box-shadow: 0 10px 22px rgba(203, 200, 200, 0.25), inset 0 2px 0 rgba(255,255,255,0.95);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.95);
   cursor: pointer;
+  z-index: 10;
 }
 
 .captureButton:disabled { opacity: 0.5; cursor: not-allowed; }
-.captureButton:active { transform: translate(-50%, -50%) translateY(9px); }
+.captureButton:active { bottom: 39px; }
 
-
-
+.captureCount {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 700;
+  z-index: 10;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
 
 @keyframes pulse {
   0% { transform: scale(1); }
@@ -249,30 +183,6 @@ body {
   100% { transform: scale(1); }
 }
 
-/* Thumbnails */
-.thumbGrid {
-  width: min(650px, 100%);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.thumb {
-  border-radius: 0;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.15);
-  box-shadow: none;
-  padding: 6px;
-}
-
-.thumb img {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  display: block;
-}
 
 /* Action row */
 .actionRow {
@@ -287,9 +197,9 @@ body {
 
 .actionRow--wrap { flex-wrap: wrap; }
 
-/* Screen E: Select */
+/* Screen D: Select */
 .selectGrid {
-  width: min(700px, 100%);
+  width: min(800px, 100%);
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -319,7 +229,12 @@ body {
   transform: translateY(-2px);
 }
 
-/* Screen F: Final */
+#screenSelect.screen--active {
+  justify-content: center;
+  align-items: center;
+}
+
+/* Screen E: Final */
 #screenFinal .screenCard {
   background: transparent;
   backdrop-filter: none;
@@ -336,12 +251,17 @@ body {
 }
 
 .finalPreview img {
-  max-width: min(580px, 92vw);
-  max-height: 60vh;
+  max-width: min(750px, 92vw);
+  max-height: 75vh;
   width: auto;
   height: auto;
   object-fit: contain;
   box-shadow: 0 12px 30px rgba(0,0,0,0.22);
+}
+
+#screenFinal.screen--active {
+  justify-content: center;
+  align-items: center;
 }
 
 /* Buttons */
@@ -399,15 +319,6 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .layoutChoices { gap: 8px; }
-  .layoutChoice { max-width: 30vw; }
-  .thumbGrid { grid-template-columns: repeat(2, 1fr); }
   .selectGrid { grid-template-columns: repeat(2, 1fr); }
   .actionRow { flex-direction: column; align-items: stretch; }
-  .captureWrap { grid-template-columns: 1fr; height: auto; }
-  .capturePanel { width: min(200px, 45vw); }
-   #screenChooseLayout .screenTitle { font-size: 1.1rem; }
-   #screenChooseLayout { padding: 16px; gap: 16px; }
-  .layoutChoice { max-width: 28vw; }
-
 }

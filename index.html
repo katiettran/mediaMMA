@@ -27,66 +27,23 @@
             </div>
         </section>
 
-        <!-- Screen B: Choose layout -->
-        <section id="screenChooseLayout" class="screen" aria-label="Choose layout screen">
-            <div class="screenCard">
-                <div class="layoutChoices" role="list">
-                    <button class="layoutChoice" type="button" data-layout="2" aria-label="Choose 2 pictures layout">
-                        <img src="pics/F2.png" alt="2 pictures layout preview">
-                    </button>
-                    <button class="layoutChoice" type="button" data-layout="3" aria-label="Choose 3 pictures layout">
-                        <img src="pics/F3.png" alt="3 pictures layout preview">
-                    </button>
-                    <button class="layoutChoice" type="button" data-layout="4" aria-label="Choose 4 pictures layout">
-                        <img src="pics/F4.png" alt="4 pictures layout preview">
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Screen C: Capture -->
+       <!-- Screen B: Capture -->
         <section id="screenCapture" class="screen" aria-label="Capture screen">
             <div class="captureWrap">
-                <div
-                    id="capturePanelWrap"
-                    class="capturePanel"
-                    data-panel-w="483.7"
-                    data-panel-h="847.4"
-                    data-preview-w="390.9"
-                    data-preview-h="519.8"
-                    data-preview-x="38.9"
-                    data-preview-y="78"
-                >
-                    <img id="capturePanelImg" class="capturePanel__img" src="pics/startCamera.png" alt="Capture panel">
-
-                    <!-- Hidden video source -->
+                <div class="captureLeft">
                     <video id="video" autoplay playsinline muted class="srOnly"></video>
-
-                    <!-- Preview canvas (shows either raw video or segmentation preview) -->
                     <div id="capturePreview" class="capturePanel__preview" aria-label="Camera preview">
                         <canvas id="previewCanvas"></canvas>
-
                         <div id="countdown" class="countdown-overlay">
                             <div class="countdown-number">3</div>
                         </div>
+                        <div id="captureCount" class="captureCount">0 / 4</div>
+                        <button id="capturePhoto" class="captureButton" type="button" disabled>CAPTURE</button>
                     </div>
-
-                    <button id="capturePhoto" class="captureButton" type="button" disabled>CAPTURE</button>
                 </div>
-
                 <canvas id="canvas" style="display: none;"></canvas>
-            <div class="captureRight">                    
-
-                <div class="thumbGrid" id="thumbGrid" aria-label="Captured photos thumbnails"></div>
-
-                <div class="actionRow">
-                    <button id="retakeAll" class="btn btn-danger" type="button" style="display:none">Retake</button>
-                    <button id="continueToSelect" class="btn btn-success" type="button" style="display:none">Confirm</button>
-                </div>
-            </div>    
             </div>
         </section>
-
         <!-- Screen E: Select photos -->
         <section id="screenSelect" class="screen" aria-label="Select photos screen">
             <div class="screenCard screenCard--wide">
@@ -96,7 +53,7 @@
                 <div class="selectGrid" id="selectGrid" aria-label="Select photos"></div>
 
                 <div class="actionRow">
-                    <button id="backToCapture" class="btn btn-secondary" type="button">Back</button>
+                    <button id="backToCapture" class="btn btn-secondary" type="button">Retake</button>
                     <button id="confirmSelection" class="btn btn-primary" type="button" disabled>Confirm</button>
                 </div>
             </div>
