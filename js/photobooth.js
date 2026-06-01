@@ -58,9 +58,9 @@ class PhotoBooth {
 
     async preloadKvBackground() {
         try {
-            this.kvBackground = await this.loadImage('IMG_6389.PNG');
+            this.kvBackground = await this.loadImage('IMG_6390.PNG');
         } catch (e) {
-            console.warn('Failed to load IMG_6389.PNG:', e);
+            console.warn('Failed to load IMG_6390.PNG:', e);
             this.kvBackground = null;
         }
     }
@@ -407,6 +407,8 @@ class PhotoBooth {
                 // The captured image already contains the virtual background (if enabled).
                 this.drawCover(ctx, img, scaledSlot.x, scaledSlot.y, scaledSlot.w, scaledSlot.h);
             }
+            const qr = await this.loadImage('pics/qr.png');
+            ctx.drawImage(qr, 3143 - 5, 2519 - 2, 160, 160); 
 
             const blob = await new Promise((resolve) => stripCanvas.toBlob(resolve, 'image/png'));
             this.finalBlob = blob;
@@ -427,7 +429,7 @@ class PhotoBooth {
             baseCanvasW: 3429,
             baseCanvasH: 2706,
             slots: [{ x: 132.9, y: 678.8, w: 3163.3, h: 1779.4 }],
-            overlayPath: 'pics/1F.svg',
+            overlayPath: 'pics/1F.png',
             expectedSlots: 1
         };
     }
