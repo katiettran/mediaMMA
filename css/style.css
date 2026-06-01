@@ -72,9 +72,9 @@ body {
 
 .screenStart__panel {
   width: auto;
-  max-width: 92vw;
+  max-width: 75vw;
   height: auto;
-  max-height: 80vh;
+  max-height: 75vh;
   display: block;
 }
 
@@ -137,10 +137,7 @@ body {
   background: #111;
   overflow: hidden;
   z-index: 1;
-  aspect-ratio: 16/9;
-  height: auto;
-  top: 50%;
-  transform: translateY(-50%);
+
 }
 
 .capturePanel__preview canvas {
