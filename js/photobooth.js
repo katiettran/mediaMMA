@@ -407,7 +407,7 @@ class PhotoBooth {
                 // The captured image already contains the virtual background (if enabled).
                 this.drawCover(ctx, img, scaledSlot.x, scaledSlot.y, scaledSlot.w, scaledSlot.h);
             }
-            const qr = await this.loadImage('pics/qr.png');
+            const qr = await this.loadImage('pics/QR.png');
             ctx.drawImage(qr, 3143 - 5, 2519 - 2, 160, 160); 
 
             const blob = await new Promise((resolve) => stripCanvas.toBlob(resolve, 'image/png'));
