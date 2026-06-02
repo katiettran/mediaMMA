@@ -369,7 +369,7 @@ class PhotoBooth {
             const layoutSpec = this.getLayoutSpec();            
             // Load overlay first; export should match frame size (prevents stretching)
             const overlay = await this.loadImage(layoutSpec.overlayPath);
-            const EXPORT_SCALE = 3;
+            const EXPORT_SCALE = 2;
             const logo = await this.loadImage('pics/LOGO INNOVATE.png');
 
             stripCanvas.width = overlay.width * EXPORT_SCALE;
