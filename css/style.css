@@ -148,7 +148,7 @@ body {
 
 .captureButton {
   position: absolute;
-  bottom: 70px;
+  bottom: 100px;
   left: 50%;
   transform: translateX(-50%);
   width: 120px;
@@ -166,7 +166,7 @@ body {
 }
 
 .captureButton:disabled { opacity: 0.5; cursor: not-allowed; }
-.captureButton:active { transform: translateX(-50%) translateY(2px); }
+.captureButton:active { bottom: 50px; }
 
 .captureCount {
   position: absolute;
