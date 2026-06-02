@@ -291,18 +291,6 @@ class PhotoBooth {
         }
     }
 
-    renderThumbs() {
-        this.thumbGrid.innerHTML = '';
-        // Only show captured photos (no empty placeholders)
-        this.photoUrls.forEach((url, idx) => {
-            if (!url) return;
-            const wrapper = document.createElement('div');
-            wrapper.className = 'thumb';
-            wrapper.innerHTML = `<img src="${url}" alt="Captured photo ${idx + 1}">`;
-            this.thumbGrid.appendChild(wrapper);
-        });
-    }
-
     resetCapture() {
         this.captureCountEl.textContent = '0 / 4';
         this.selectedIndices.clear();
