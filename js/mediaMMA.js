@@ -265,6 +265,7 @@ class PhotoBooth {
                 this.captureCountEl.textContent = `${this.currentCaptureIndex} / 6`;
                 this.captureBtn.disabled = false;
             } else {
+                this.captureCountEl.textContent = `6 / 6`;
                 await this.applyBackgroundsAndSelect();
             }
                         
