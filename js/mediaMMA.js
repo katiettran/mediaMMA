@@ -191,7 +191,19 @@ class PhotoBooth {
             ctx.save();
             ctx.clearRect(0, 0, w, h);
             ctx.scale(-1, 1);
-            ctx.drawImage(this.video, -w, 0, w, h);
+            const vw = this.video.videoWidth;
+            const vh = this.video.videoHeight;
+            const dstAR = w / h;
+            const srcAR = vw / vh;
+            let sx = 0, sy = 0, sw = vw, sh = vh;
+            if (srcAR > dstAR) {
+                sw = Math.round(vh * dstAR);
+                sx = Math.round((vw - sw) / 2);
+            } else {
+                sh = Math.round(vw / dstAR);
+                sy = Math.round((vh - sh) / 2);
+            }
+            ctx.drawImage(this.video, sx, sy, sw, sh, -w, 0, w, h);
             ctx.restore();
 
             requestAnimationFrame(tick);
