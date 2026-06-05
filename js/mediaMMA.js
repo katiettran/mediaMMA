@@ -247,7 +247,7 @@ class PhotoBooth {
         this.canvas.width = targetW;
         this.canvas.height = targetH;
         
-        const finishWithBlob = (blob) => {
+        const finishWithBlob = async (blob) => {
             const photoUrl = URL.createObjectURL(blob);
             this.photoBlobs[this.currentCaptureIndex] = blob;
             this.photoUrls[this.currentCaptureIndex] = photoUrl;
@@ -265,7 +265,7 @@ class PhotoBooth {
                 this.captureCountEl.textContent = `${this.currentCaptureIndex} / 6`;
                 this.captureBtn.disabled = false;
             } else {
-                this.goToSelect();
+                await this.applyBackgroundsAndSelect();
             }
                         
         };
@@ -286,20 +286,7 @@ class PhotoBooth {
             }, 'image/jpeg', 0.96);
         };
 
-        // If background is available, cut out person + composite onto background (MediaPipe)
-        if (this.kvBackground) {
-            compositeVirtualBackground(this.video, this.kvBackground, this.canvas)
-                .then(() => {
-                    // PNG keeps edges cleaner on the cutout
-                    this.canvas.toBlob((blob) => {
-                        if (!blob) return;
-                        finishWithBlob(blob);
-                    }, 'image/png');
-                })
-                .catch(() => fallbackRaw());
-        } else {
-            fallbackRaw();
-        }
+    fallbackRaw();
     }
 
     resetCapture() {
@@ -322,6 +309,21 @@ class PhotoBooth {
 
     }
 
+    async applyBackgroundsAndSelect() {
+        if (this.kvBackground) {
+            for (let i = 0; i < this.photoBlobs.length; i++) {
+                const img = await this.loadImage(this.photoUrls[i]);
+                this.canvas.width = img.width;
+                this.canvas.height = img.height;
+                await compositeVirtualBackground(img, this.kvBackground, this.canvas);
+                const blob = await new Promise(resolve => this.canvas.toBlob(resolve, 'image/png'));
+                URL.revokeObjectURL(this.photoUrls[i]);
+                this.photoUrls[i] = URL.createObjectURL(blob);
+                this.photoBlobs[i] = blob;
+            }
+        }
+        this.goToSelect();
+    }
     goToSelect() {
         const n = this.layout;
         this.selectedIndices.clear();
