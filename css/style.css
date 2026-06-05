@@ -143,7 +143,7 @@ body {
   transform: translate(-50%, -50%);
   width: min(900px, 100vw);
   aspect-ratio: 16/9;
-  background: #111;
+  background: transparent;
   overflow: hidden;
   z-index: 1;
   pointer-events: none;
