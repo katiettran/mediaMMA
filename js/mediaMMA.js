@@ -14,6 +14,7 @@ class PhotoBooth {
             start: document.getElementById('screenStart'),
             capture: document.getElementById('screenCapture'),
             select: document.getElementById('screenSelect'),
+            chooseFrame: document.getElementById('screenChooseFrame'),
             final: document.getElementById('screenFinal')
         };
 
@@ -34,6 +35,10 @@ class PhotoBooth {
         this.selectHint = document.getElementById('selectHint');
         this.finalStripPreview = document.getElementById('finalStripPreview');
         this.toggleBgPreviewBtn = document.getElementById('toggleBgPreview');
+        this.backToSelectBtn = document.getElementById('backToSelect');
+        this.confirmFrameBtn = document.getElementById('confirmFrame');
+        this.frameChoicesEl = document.getElementById('frameChoices');
+        this.selectedFrame = null;
 
 
         this.stream = null;
@@ -55,6 +60,8 @@ class PhotoBooth {
         this.isPreviewLoopRunning = false;
         this.frameSlotCache = new Map();
         this.kvBackground = null;
+        this.facingMode = 'user';
+        this.flipCameraBtn = document.getElementById('flipCamera');
         
         this.initializeEventListeners();
         this.goToScreen('start');
@@ -73,13 +80,21 @@ class PhotoBooth {
     
     initializeEventListeners() {
         this.startFlowBtn.addEventListener('click', () => this.handleStartFlow());
-
+        this.flipCameraBtn.addEventListener('click', async () => {
+            this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
+            this.stream.getTracks().forEach(t => t.stop());
+            this.isPreviewLoopRunning = false;
+            await this.startCamera();
+            this.startPreviewLoop();
+        });
         this.captureBtn.addEventListener('click', () => this.startPhotoCapture());
         this.backToCaptureBtn.addEventListener('click', () => {
         this.resetCapture();
         this.goToScreen('capture');
         });
-            this.confirmSelectionBtn.addEventListener('click', () => this.buildFinalStrip());
+        this.confirmSelectionBtn.addEventListener('click', () => this.goToChooseFrame());
+        this.backToSelectBtn.addEventListener('click', () => this.goToScreen('select'));
+        this.confirmFrameBtn.addEventListener('click', () => this.buildFinalStrip());
         this.toggleBgPreviewBtn.addEventListener('click', () => {
         this.bgPreviewEnabled = !this.bgPreviewEnabled;
         this.toggleBgPreviewBtn.textContent = this.bgPreviewEnabled ? 'Background: ON' : 'Background: OFF';
@@ -160,7 +175,7 @@ class PhotoBooth {
                 video: {
                     width: { ideal: 1280 },
                     height: { ideal: 720 },
-                    facingMode: 'user'
+                    facingMode: this.facingMode
                 }
             });
             
@@ -200,6 +215,7 @@ class PhotoBooth {
             const h = this.previewCanvas.height;
             ctx.save();
             ctx.clearRect(0, 0, w, h);
+            ctx.filter = 'brightness(1.08) blur(0.5px) contrast(0.95)';
             ctx.scale(-1, 1);
             const vw = this.video.videoWidth;
             const vh = this.video.videoHeight;
@@ -213,7 +229,13 @@ class PhotoBooth {
                 sh = Math.round(vw / dstAR);
                 sy = Math.round((vh - sh) / 2);
             }
-            ctx.drawImage(this.video, sx, sy, sw, sh, -w, 0, w, h);
+            const zoom = 0.85;
+            const zoomedW = Math.round(w / zoom);
+            const zoomedH = Math.round(h / zoom);
+            const zoomedX = -Math.round((zoomedW - w) / 2) - w;
+            const zoomedY = -Math.round((zoomedH - h) / 2);
+            ctx.drawImage(this.video, sx, sy, sw, sh, zoomedX, zoomedY, zoomedW, zoomedH);
+            ctx.filter = 'none';
             ctx.restore();
 
             requestAnimationFrame(tick);
@@ -286,9 +308,12 @@ class PhotoBooth {
             context.save();
             context.clearRect(0, 0, targetW, targetH);
             // Mirror while cropping to 4:3
-            context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
             context.translate(targetW, 0);
             context.scale(-1, 1);
+            context.filter = 'brightness(1.08) blur(0.5px) contrast(0.95)';
+            context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
+            context.filter = 'none';
+            context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
             context.restore();
             this.canvas.toBlob((blob) => {
                 if (!blob) return;
@@ -365,6 +390,76 @@ class PhotoBooth {
         this.goToScreen('select');
     }
 
+   async goToChooseFrame() {
+    this.selectedFrame = null;
+    this.confirmFrameBtn.disabled = true;
+    this.frameChoicesEl.innerHTML = '<p style="color:white;text-align:center">Generating previews...</p>';
+    this.goToScreen('chooseFrame');
+
+    const indices = Array.from(this.selectedIndices.values());
+    const blobs = this.bgPreviewEnabled && this.photoBgBlobs.length 
+        ? this.photoBgBlobs 
+        : this.photoBlobs;
+    const chosenBlobs = indices.map(i => blobs[i]).filter(Boolean);
+
+    const frames = [
+        { id: 'frame1', label: 'Designed Frame', path: 'pics/designedFrame.png' },
+        { id: 'frame2', label: 'Plain Frame', path: 'pics/plainFrame.png' },
+    ];
+
+    this.frameChoicesEl.innerHTML = '';
+
+    for (const frame of frames) {
+        // Build preview canvas for this frame
+        const previewCanvas = document.createElement('canvas');
+        const ctx = previewCanvas.getContext('2d');
+        const overlay = await this.loadImage(frame.path);
+        const SCALE = 1;
+        previewCanvas.width = overlay.width * SCALE;
+        previewCanvas.height = overlay.height * SCALE;
+        ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+        this.drawContain(ctx, overlay, 0, 0, overlay.width, overlay.height);
+
+        const layoutSpec = {
+            baseCanvasW: 738,
+            baseCanvasH: 1270,
+            slots: [
+                { x: 114.4, y: 186.3, w: 514.1, h: 303.1 },
+                { x: 114.4, y: 519.4, w: 514.1, h: 303.1 },
+                { x: 114.4, y: 852.5, w: 514.1, h: 303.1 }
+            ],
+            overlayPath: frame.path,
+            expectedSlots: 3
+        };
+
+        const slots = await this.getSlotsForFrame(overlay, layoutSpec);
+        for (let i = 0; i < slots.length; i++) {
+            const s = slots[i];
+            const url = URL.createObjectURL(chosenBlobs[i]);
+            const img = await this.loadImage(url);
+            URL.revokeObjectURL(url);
+            this.drawCover(ctx, img, s.x, s.y, s.w, s.h);
+        }
+        const qr = await this.loadImage('pics/QR.png');
+        ctx.drawImage(qr, 649, 1196, 58, 58);
+
+        const previewUrl = await new Promise(resolve => {
+            previewCanvas.toBlob(blob => resolve(URL.createObjectURL(blob)), 'image/jpeg', 0.85);
+        });
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'frameChoice';
+        btn.innerHTML = `<img src="${previewUrl}" alt="${frame.label}" style="width:100%;height:auto;display:block;border-radius:8px;">`;
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.frameChoice').forEach(b => b.classList.remove('frameChoice--selected'));
+            btn.classList.add('frameChoice--selected');
+            this.selectedFrame = frame;
+            this.confirmFrameBtn.disabled = false;
+        });
+        this.frameChoicesEl.appendChild(btn);
+    }
+}
     refreshSelectGrid() {
     const urls = this.bgPreviewEnabled && this.photoBgUrls.length 
         ? this.photoBgUrls 
@@ -440,7 +535,7 @@ class PhotoBooth {
                 this.drawCover(ctx, img, scaledSlot.x, scaledSlot.y, scaledSlot.w, scaledSlot.h);
             }
             const qr = await this.loadImage('pics/QR.png');
-            ctx.drawImage(qr, 658, 1196, 58, 58); 
+            ctx.drawImage(qr, 649, 1196, 58, 58); 
 
             const blob = await new Promise((resolve) => stripCanvas.toBlob(resolve, 'image/png'));
             this.finalBlob = blob;
@@ -456,19 +551,20 @@ class PhotoBooth {
         }
     }
 
- getLayoutSpec() {
-    return {
-        baseCanvasW: 738,
-        baseCanvasH: 1270,
-        slots: [
-            { x: 103.5, y: 262.7, w: 531, h: 291 },
-            { x: 103.5, y: 576, w: 531, h: 291 },
-            { x: 103.5, y: 889.3, w: 531, h: 291 }
-        ],
-        overlayPath: 'pics/3F.png',
-        expectedSlots: 3
-    };
-}
+        getLayoutSpec() {
+            const path = this.selectedFrame?.path || 'pics/plainFrame.png';
+            return {
+                baseCanvasW: 738,
+                baseCanvasH: 1270,
+                slots: [
+                    { x: 114.4, y: 186.3, w: 514.1, h: 303.1 },
+                    { x: 114.4, y: 519.4, w: 514.1, h: 303.1 },
+                    { x: 114.4, y: 852.5, w: 514.1, h: 303.1 }
+                ],
+                overlayPath: path,
+                expectedSlots: 3
+            };
+        }
 
     async getSlotsForFrame(overlayImg, layoutSpec) {
         if (layoutSpec.slots && layoutSpec.baseCanvasW && layoutSpec.baseCanvasH) {

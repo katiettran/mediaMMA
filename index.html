@@ -35,13 +35,14 @@
                     <div id="capturePreview" class="capturePanel__preview" aria-label="Camera preview">
                         <canvas id="previewCanvas"></canvas>
                         <div id="captureCount" class="captureCount">0 / 6</div>
+                        <button id="flipCamera" class="flipCameraBtn" type="button">🔄</button>
                     </div>
                     <button id="capturePhoto" class="captureButton" type="button" disabled>CAPTURE</button>
                 </div>
                 <canvas id="canvas" style="display: none;"></canvas>
             </div>
         </section>
-        <!-- Screen E: Select photos -->
+        <!-- Screen C: Select photos -->
         <section id="screenSelect" class="screen" aria-label="Select photos screen">
             <div class="screenCard screenCard--wide">
                 <h2 class="screenTitle">Select your pictures</h2>
@@ -51,6 +52,17 @@
                 <div class="actionRow">
                     <button id="backToCapture" class="btn btn-secondary" type="button">Retake</button>
                     <button id="confirmSelection" class="btn btn-primary" type="button" disabled>Confirm</button>
+                </div>
+            </div>
+        </section>
+        <!-- Screen D: Choose Frame -->
+        <section id="screenChooseFrame" class="screen" aria-label="Choose frame screen">
+            <div class="screenCard screenCard--wide">
+                <h2 class="screenTitle">Choose your frame</h2>
+                <div class="frameChoices" id="frameChoices"></div>
+                <div class="actionRow">
+                    <button id="backToSelect" class="btn btn-secondary" type="button">Back</button>
+                    <button id="confirmFrame" class="btn btn-primary" type="button" disabled>Confirm</button>
                 </div>
             </div>
         </section>
