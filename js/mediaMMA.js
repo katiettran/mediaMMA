@@ -29,6 +29,8 @@ class PhotoBooth {
         this.confirmSelectionBtn = document.getElementById('confirmSelection');
         this.downloadFinalBtn = document.getElementById('downloadFinal');
         this.shareFinalBtn = document.getElementById('shareFinal');
+        this.toggleBgBtn = document.getElementById('toggleBg');
+        this.bgEnabled = true;
 
         this.selectGrid = document.getElementById('selectGrid');
         this.selectHint = document.getElementById('selectHint');
@@ -74,6 +76,10 @@ class PhotoBooth {
         this.goToScreen('capture');
         });
             this.confirmSelectionBtn.addEventListener('click', () => this.buildFinalStrip());
+        this.toggleBgBtn.addEventListener('click', () => {
+        this.bgEnabled = !this.bgEnabled;
+        this.toggleBgBtn.textContent = this.bgEnabled ? 'Background: ON' : 'Background: OFF';
+        });    
 
         this.downloadFinalBtn.addEventListener('click', () => this.downloadFinal());
         this.shareFinalBtn.addEventListener('click', () => this.shareFinal());
@@ -311,7 +317,7 @@ class PhotoBooth {
     }
 
     async applyBackgroundsAndSelect() {
-        if (this.kvBackground) {
+        if (this.kvBackground && this.bgEnabled) {
             for (let i = 0; i < this.photoBlobs.length; i++) {
                 const img = await this.loadImage(this.photoUrls[i]);
                 this.canvas.width = img.width;

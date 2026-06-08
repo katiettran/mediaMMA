@@ -178,6 +178,22 @@ body {
 .captureButton:disabled { opacity: 0.5; cursor: not-allowed; }
 .captureButton:active { transform: translateX(-50%) translateY(2px); }
 
+.toggleBgBtn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  pointer-events: all;
+
+}
+
 .captureCount {
   position: absolute;
   top: 20px;
