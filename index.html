@@ -35,7 +35,6 @@
                     <div id="capturePreview" class="capturePanel__preview" aria-label="Camera preview">
                         <canvas id="previewCanvas"></canvas>
                         <div id="captureCount" class="captureCount">0 / 6</div>
-                        <button id="toggleBg" class="toggleBgBtn" type="button">Background: ON</button>
                     </div>
                     <button id="capturePhoto" class="captureButton" type="button" disabled>CAPTURE</button>
                 </div>
@@ -47,9 +46,8 @@
             <div class="screenCard screenCard--wide">
                 <h2 class="screenTitle">Select your pictures</h2>
                 <p id="selectHint" class="screenSubtitle"></p>
-
+                <button id="toggleBgPreview" class="btn btn-secondary" type="button">Background: ON</button>
                 <div class="selectGrid" id="selectGrid" aria-label="Select photos"></div>
-
                 <div class="actionRow">
                     <button id="backToCapture" class="btn btn-secondary" type="button">Retake</button>
                     <button id="confirmSelection" class="btn btn-primary" type="button" disabled>Confirm</button>

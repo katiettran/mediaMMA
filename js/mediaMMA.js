@@ -29,12 +29,12 @@ class PhotoBooth {
         this.confirmSelectionBtn = document.getElementById('confirmSelection');
         this.downloadFinalBtn = document.getElementById('downloadFinal');
         this.shareFinalBtn = document.getElementById('shareFinal');
-        this.toggleBgBtn = document.getElementById('toggleBg');
-        this.bgEnabled = true;
 
         this.selectGrid = document.getElementById('selectGrid');
         this.selectHint = document.getElementById('selectHint');
         this.finalStripPreview = document.getElementById('finalStripPreview');
+        this.toggleBgPreviewBtn = document.getElementById('toggleBgPreview');
+
 
         this.stream = null;
 
@@ -45,6 +45,10 @@ class PhotoBooth {
         // Store as blobs (for share) + objectURLs (for display)
         this.photoBlobs = [];
         this.photoUrls = [];
+
+        this.photoBgBlobs = [];
+        this.photoBgUrls = [];
+        this.bgPreviewEnabled = true;
 
         this.selectedIndices = new Set();
         this.finalBlob = null;
@@ -76,11 +80,11 @@ class PhotoBooth {
         this.goToScreen('capture');
         });
             this.confirmSelectionBtn.addEventListener('click', () => this.buildFinalStrip());
-        this.toggleBgBtn.addEventListener('click', () => {
-        this.bgEnabled = !this.bgEnabled;
-        this.toggleBgBtn.textContent = this.bgEnabled ? 'Background: ON' : 'Background: OFF';
-        });    
-
+        this.toggleBgPreviewBtn.addEventListener('click', () => {
+        this.bgPreviewEnabled = !this.bgPreviewEnabled;
+        this.toggleBgPreviewBtn.textContent = this.bgPreviewEnabled ? 'Background: ON' : 'Background: OFF';
+        this.refreshSelectGrid();
+    });    
         this.downloadFinalBtn.addEventListener('click', () => this.downloadFinal());
         this.shareFinalBtn.addEventListener('click', () => this.shareFinal());
     }
@@ -282,11 +286,10 @@ class PhotoBooth {
             context.save();
             context.clearRect(0, 0, targetW, targetH);
             // Mirror while cropping to 4:3
+            context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
             context.translate(targetW, 0);
             context.scale(-1, 1);
-            context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
             context.restore();
-
             this.canvas.toBlob((blob) => {
                 if (!blob) return;
                 finishWithBlob(blob);
@@ -314,23 +317,30 @@ class PhotoBooth {
 
         this.captureBtn.disabled = false;
 
+        this.photoBgBlobs.forEach((b, idx) => {
+        const url = this.photoBgUrls[idx];
+        if (url) URL.revokeObjectURL(url);
+    });
+    this.photoBgBlobs = [];
+    this.photoBgUrls = [];
+    this.bgPreviewEnabled = true;
+
     }
 
-    async applyBackgroundsAndSelect() {
-        if (this.kvBackground && this.bgEnabled) {
-            for (let i = 0; i < this.photoBlobs.length; i++) {
-                const img = await this.loadImage(this.photoUrls[i]);
-                this.canvas.width = img.width;
-                this.canvas.height = img.height;
-                await compositeVirtualBackground(img, this.kvBackground, this.canvas);
-                const blob = await new Promise(resolve => this.canvas.toBlob(resolve, 'image/png'));
-                URL.revokeObjectURL(this.photoUrls[i]);
-                this.photoUrls[i] = URL.createObjectURL(blob);
-                this.photoBlobs[i] = blob;
-            }
+   async applyBackgroundsAndSelect() {
+    if (this.kvBackground) {
+        for (let i = 0; i < this.photoBlobs.length; i++) {
+            const img = await this.loadImage(this.photoUrls[i]);
+            this.canvas.width = img.width;
+            this.canvas.height = img.height;
+            await compositeVirtualBackground(img, this.kvBackground, this.canvas);
+            const blob = await new Promise(resolve => this.canvas.toBlob(resolve, 'image/png'));
+            this.photoBgUrls[i] = URL.createObjectURL(blob);
+            this.photoBgBlobs[i] = blob;
         }
-        this.goToSelect();
     }
+    this.goToSelect();
+}
     goToSelect() {
         const n = this.layout;
         this.selectedIndices.clear();
@@ -338,8 +348,11 @@ class PhotoBooth {
 
         this.selectHint.textContent = `Select ${n} photo${n === 1 ? '' : 's'}.`;
 
-        this.photoUrls.forEach((url, idx) => {
-            const item = document.createElement('button');
+        const displayUrls = this.bgPreviewEnabled && this.photoBgUrls.length 
+            ? this.photoBgUrls 
+            : this.photoUrls;
+        displayUrls.forEach((url, idx) => {
+        const item = document.createElement('button');
             item.type = 'button';
             item.className = 'selectItem';
             item.dataset.idx = String(idx);
@@ -351,6 +364,15 @@ class PhotoBooth {
         this.updateConfirmState();
         this.goToScreen('select');
     }
+
+    refreshSelectGrid() {
+    const urls = this.bgPreviewEnabled && this.photoBgUrls.length 
+        ? this.photoBgUrls 
+        : this.photoUrls;
+    document.querySelectorAll('.selectItem img').forEach((img, idx) => {
+        img.src = urls[idx];
+    });
+}
 
     toggleSelect(idx, el) {
         const max = this.layout;
@@ -379,7 +401,10 @@ class PhotoBooth {
     async buildFinalStrip() {
         try {
             const indices = Array.from(this.selectedIndices.values());
-            const chosenBlobs = indices.map(i => this.photoBlobs[i]).filter(Boolean);
+            const blobs = this.bgPreviewEnabled && this.photoBgBlobs.length 
+            ? this.photoBgBlobs 
+            : this.photoBlobs;
+        const chosenBlobs = indices.map(i => blobs[i]).filter(Boolean);
             if (chosenBlobs.length !== this.layout) return;
 
             const stripCanvas = document.createElement('canvas');
@@ -390,7 +415,6 @@ class PhotoBooth {
             // Load overlay first; export should match frame size (prevents stretching)
             const overlay = await this.loadImage(layoutSpec.overlayPath);
             const EXPORT_SCALE = 2;
-            const logo = await this.loadImage('pics/LOGO INNOVATE.png');
 
             stripCanvas.width = overlay.width * EXPORT_SCALE;
             stripCanvas.height = overlay.height * EXPORT_SCALE;
@@ -690,6 +714,9 @@ class PhotoBooth {
         this.photoUrls.forEach(url => {
             if (url) URL.revokeObjectURL(url);
         });
+            this.photoBgUrls.forEach(url => {
+        if (url) URL.revokeObjectURL(url);
+    });
     }
 }
 

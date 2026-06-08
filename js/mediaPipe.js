@@ -108,7 +108,7 @@ export async function compositeVirtualBackground(video, kvBackground, outCanvas)
     videoCanvas.width = w;
     videoCanvas.height = h;
     const videoCtx = videoCanvas.getContext('2d');
-    drawCover(videoCtx, video, 0, 0, w, h, true);
+    drawCover(videoCtx, video, 0, 0, w, h, false);
 
     const segmenter = await getSegmenter();
     if (!segmenter) {
