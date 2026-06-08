@@ -313,7 +313,6 @@ class PhotoBooth {
             context.filter = 'brightness(1.08) blur(0.5px) contrast(0.95)';
             context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
             context.filter = 'none';
-            context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
             context.restore();
             this.canvas.toBlob((blob) => {
                 if (!blob) return;

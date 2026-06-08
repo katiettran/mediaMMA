@@ -382,11 +382,4 @@ body {
 @media (max-width: 768px) {
   .selectGrid { grid-template-columns: repeat(2, 1fr); }
   .actionRow { flex-direction: column; align-items: stretch; }
-  .frameChoices {
-    flex-direction: row;
-    gap: 12px;
-  }
-  .frameChoice {
-    width: min(160px, 44vw);
-  }
 }
