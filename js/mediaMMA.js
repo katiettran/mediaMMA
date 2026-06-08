@@ -229,7 +229,7 @@ class PhotoBooth {
                 sh = Math.round(vw / dstAR);
                 sy = Math.round((vh - sh) / 2);
             }
-            const zoom = 2.0;
+            const zoom = 1.5;
             const zoomedW = Math.round(w / zoom);
             const zoomedH = Math.round(h / zoom);
             const zoomedX = -Math.round((zoomedW - w) / 2) - w;
