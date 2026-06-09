@@ -189,49 +189,67 @@ class PhotoBooth {
     }
 }
 
-    startPreviewLoop() {
-        if (!this.previewCanvas || !this.capturePreview) return;
-        if (this.isPreviewLoopRunning) return;
-        this.isPreviewLoopRunning = true;
+startPreviewLoop() {
+    if (!this.previewCanvas || !this.capturePreview) return;
+    if (this.isPreviewLoopRunning) return;
+    this.isPreviewLoopRunning = true;
 
-        const resizeCanvas = () => {
-            const rect = this.capturePreview.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            const targetW = Math.max(1, Math.round(rect.width * dpr));
-            const targetH = Math.max(1, Math.round(rect.height * dpr));
-            if (this.previewCanvas.width !== targetW || this.previewCanvas.height !== targetH) {
-                this.previewCanvas.width = targetW;
-                this.previewCanvas.height = targetH;
-            }
-        };
+    const resizeCanvas = () => {
+        const rect = this.capturePreview.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const targetW = Math.max(1, Math.round(rect.width * dpr));
+        const targetH = Math.max(1, Math.round(rect.height * dpr));
+        if (this.previewCanvas.width !== targetW || this.previewCanvas.height !== targetH) {
+            this.previewCanvas.width = targetW;
+            this.previewCanvas.height = targetH;
+        }
+    };
 
-        const tick = async () => {
-            if (!this.stream) {
-                this.isPreviewLoopRunning = false;
-                return;
-            }
-            resizeCanvas();
+    const tick = () => {
+        if (!this.stream) {
+            this.isPreviewLoopRunning = false;
+            return;
+        }
+        resizeCanvas();
 
-            const ctx = this.previewCanvas.getContext('2d');
-            const w = this.previewCanvas.width;
-            const h = this.previewCanvas.height;
-            ctx.save();
-            ctx.clearRect(0, 0, w, h);
-            const mirror = this.facingMode === 'user';
-            ctx.filter = 'brightness(1.08) blur(0.5px) contrast(0.95)';
-            if (mirror) {
-                ctx.translate(w, 0);
-                ctx.scale(-1, 1);
-            }
-            ctx.drawImage(this.video, sx, sy, sw, sh, mirror ? -w : 0, 0, w, h);
-            ctx.filter = 'none';
-            ctx.restore();
+        const ctx = this.previewCanvas.getContext('2d');
+        const w = this.previewCanvas.width;
+        const h = this.previewCanvas.height;
+        const vw = this.video.videoWidth;
+        const vh = this.video.videoHeight;
+        if (!vw || !vh) { requestAnimationFrame(tick); return; }
 
-            requestAnimationFrame(tick);
-        };
+        // Crop source to match canvas aspect ratio
+        const dstAR = w / h;
+        const srcAR = vw / vh;
+        let sw, sh;
+        if (srcAR > dstAR) {
+            sh = vh;
+            sw = Math.round(vh * dstAR);
+        } else {
+            sw = vw;
+            sh = Math.round(vw / dstAR);
+        }
+        const sx = Math.round((vw - sw) / 2);
+        const sy = Math.round((vh - sh) / 2);
+
+        const mirror = this.facingMode === 'user';
+        ctx.save();
+        ctx.clearRect(0, 0, w, h);
+        ctx.filter = 'brightness(1.08) blur(0.5px) contrast(0.95)';
+        if (mirror) {
+            ctx.translate(w, 0);
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(this.video, sx, sy, sw, sh, 0, 0, w, h);
+        ctx.filter = 'none';
+        ctx.restore();
 
         requestAnimationFrame(tick);
-    }
+    };
+
+    requestAnimationFrame(tick);
+}
     
     startPhotoCapture() {
         if (!this.stream) return;
