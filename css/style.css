@@ -159,7 +159,7 @@ body {
 
 .captureButton {
   position: absolute;
-  bottom: 110px;
+  bottom: 200px;
   left: 50%;
   transform: translateX(-50%);
   width: 120px;
