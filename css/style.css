@@ -138,7 +138,7 @@ body {
 
 .capturePanel__preview {
   position: absolute;
-  top: 20%;
+  top: 17%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(680px, 92vw);
@@ -159,7 +159,7 @@ body {
 
 .captureButton {
   position: absolute;
-  bottom: 200px;
+  bottom: 220px;
   left: 50%;
   transform: translateX(-50%);
   width: 120px;
