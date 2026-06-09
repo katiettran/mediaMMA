@@ -82,10 +82,10 @@ class PhotoBooth {
         this.startFlowBtn.addEventListener('click', () => this.handleStartFlow());
         this.flipCameraBtn.addEventListener('click', async () => {
             this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
-            this.stream.getTracks().forEach(t => t.stop());
+            if (this.stream) this.stream.getTracks().forEach(t => t.stop());
             this.isPreviewLoopRunning = false;
             await this.startCamera();
-            this.startPreviewLoop();
+            if (this.stream) this.startPreviewLoop();
         });
         this.captureBtn.addEventListener('click', () => this.startPhotoCapture());
         this.backToCaptureBtn.addEventListener('click', () => {
@@ -166,26 +166,28 @@ class PhotoBooth {
     }
 
     async startCamera() {
-        try {
-            if (!navigator.mediaDevices?.getUserMedia) {
-                this.showError('Camera is not supported in this browser.');
-                return;
-            }
-            this.stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    facingMode: this.facingMode
-                }
-            });
-            
-            this.video.srcObject = this.stream;
-            await this.video.play();
-        } catch (error) {
-            console.error('Error accessing camera:', error);
-            this.showError('Unable to access camera. If you are not on https/localhost, the browser may block camera access.');
+    try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            this.showError(window.isSecureContext
+                ? 'Camera not supported in this browser.'
+                : 'Camera needs HTTPS or localhost.');
+            return;
         }
+        this.stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: this.facingMode },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+            },
+            audio: false,
+        });
+        this.video.srcObject = this.stream;
+        await this.video.play();
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        this.showError('Unable to access camera. Check permissions and try again.');
     }
+}
 
     startPreviewLoop() {
         if (!this.previewCanvas || !this.capturePreview) return;
@@ -215,26 +217,13 @@ class PhotoBooth {
             const h = this.previewCanvas.height;
             ctx.save();
             ctx.clearRect(0, 0, w, h);
+            const mirror = this.facingMode === 'user';
             ctx.filter = 'brightness(1.08) blur(0.5px) contrast(0.95)';
-            ctx.scale(-1, 1);
-            const vw = this.video.videoWidth;
-            const vh = this.video.videoHeight;
-            const dstAR = w / h;
-            const srcAR = vw / vh;
-            let sx = 0, sy = 0, sw = vw, sh = vh;
-            if (srcAR > dstAR) {
-                sw = Math.round(vh * dstAR);
-                sx = Math.round((vw - sw) / 2);
-            } else {
-                sh = Math.round(vw / dstAR);
-                sy = Math.round((vh - sh) / 2);
+            if (mirror) {
+                ctx.translate(w, 0);
+                ctx.scale(-1, 1);
             }
-            const zoom = 1.0;
-            const zoomedW = Math.round(w / zoom);
-            const zoomedH = Math.round(h / zoom);
-            const zoomedX = -Math.round((zoomedW - w) / 2) - w;
-            const zoomedY = -Math.round((zoomedH - h) / 2);
-            ctx.drawImage(this.video, sx, sy, sw, sh, zoomedX, zoomedY, zoomedW, zoomedH);
+            ctx.drawImage(this.video, sx, sy, sw, sh, mirror ? -w : 0, 0, w, h);
             ctx.filter = 'none';
             ctx.restore();
 
@@ -308,8 +297,10 @@ class PhotoBooth {
             context.save();
             context.clearRect(0, 0, targetW, targetH);
             // Mirror while cropping to 4:3
-            context.translate(targetW, 0);
-            context.scale(-1, 1);
+            if (this.facingMode === 'user') {
+                context.translate(targetW, 0);
+                context.scale(-1, 1);
+            }
             context.filter = 'brightness(1.08) blur(0.5px) contrast(0.95)';
             context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
             context.filter = 'none';
