@@ -319,7 +319,7 @@ startPreviewLoop() {
                 context.translate(targetW, 0);
                 context.scale(-1, 1);
             }
-            context.filter = 'brightness(1.08) blur(0.5px) contrast(0.95)';
+            context.filter = 'brightness(1.2) contrast(1.05) saturate(0.9) hue-rotate(5deg)';
             context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
             context.filter = 'none';
             context.restore();
