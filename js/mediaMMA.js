@@ -32,7 +32,6 @@ class PhotoBooth {
         this.shareFinalBtn = document.getElementById('shareFinal');
 
         this.selectGrid = document.getElementById('selectGrid');
-        this.selectHint = document.getElementById('selectHint');
         this.finalStripPreview = document.getElementById('finalStripPreview');
         this.toggleBgPreviewBtn = document.getElementById('toggleBgPreview');
         this.backToSelectBtn = document.getElementById('backToSelect');
@@ -319,7 +318,7 @@ startPreviewLoop() {
                 context.translate(targetW, 0);
                 context.scale(-1, 1);
             }
-            context.filter = 'brightness(2.0) contrast(1.05) saturate(0.9) hue-rotate(5deg)';
+            context.filter = 'brightness(1.1) contrast(1.1) saturate(0.85) hue-rotate(5deg)';
             context.drawImage(this.video, sx, sy, cropW, cropH, 0, 0, targetW, targetH);
             context.filter = 'none';
             context.restore();
@@ -378,8 +377,6 @@ startPreviewLoop() {
         const n = this.layout;
         this.selectedIndices.clear();
         this.selectGrid.innerHTML = '';
-
-        this.selectHint.textContent = `Select ${n} photo${n === 1 ? '' : 's'}.`;
 
         const displayUrls = this.bgPreviewEnabled && this.photoBgUrls.length 
             ? this.photoBgUrls 

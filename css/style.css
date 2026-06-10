@@ -37,8 +37,6 @@ body {
 
 .screenCard--wide { 
   width: min(1000px, 100%);
-  max-height: 80vh;
-  overflow-y: auto; 
 }
 
 .screenTitle {
@@ -97,7 +95,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #ffffff;
-  background: linear-gradient(180deg, #9f9f9f 0%, #666666 45%, #444444 100%);
+  background: #ffa400;
   box-shadow: 0 8px 18px rgba(132,128,128,0.22), inset 0 2px 0 rgba(255,255,255,0.9);
   cursor: pointer;
   z-index: 100;
@@ -138,7 +136,7 @@ body {
 
 .capturePanel__preview {
   position: absolute;
-  bottom: 20%;
+  top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(680px, 92vw);
@@ -162,7 +160,7 @@ body {
 
 .captureButton {
   position: absolute;
-  bottom: 220px;
+  bottom: 140px;
   left: 50%;
   transform: translateX(-50%);
   width: 120px;
@@ -172,9 +170,9 @@ body {
   font-size: 0.85rem;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #464544;
-  background: linear-gradient(180deg, #ffffff 0%, #9c9993 55%, #f5efe6 100%);
-  box-shadow: 0 10px 22px rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.95);
+  color: #ffffff;
+  background: #ffa400 ;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.3), inset 0 2px 0 rgba(174, 131, 75, 0.95);
   cursor: pointer;
   z-index: 10;
   pointer-events: all;
@@ -219,7 +217,7 @@ body {
 
 /* Action row */
 .actionRow {
-  width: min(920px, 100%);
+  width: fit-content;
   margin: 0 auto;
   display: flex;
   justify-content: center;
@@ -273,9 +271,9 @@ body {
   align-items: center;
 }
 
-#toggleBgPreview {
+/*#toggleBgPreview {
   margin: 0 auto 16px;
-}
+} */
 
 .frameChoices {
   display: flex;
@@ -300,6 +298,33 @@ body {
   box-shadow: 0 0 20px rgba(255,255,255,0.4);
 }
 
+#confirmSelection {
+  background: #ffa400 ;
+  color: #000000ff;
+}
+
+/*#screenSelect .actionRow {
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-top: 16px;
+}
+*/
+
+#screenSelect .actionRow {
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  margin-top: 16px;
+  width: 100%;
+}
+
+#screenSelect .btn {
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 /* Screen E: Final */
 #screenFinal .screenCard {
   background: transparent;
@@ -308,7 +333,10 @@ body {
   padding: 0;
 }
 
-#screenFinal .screenTitle { color: rgba(255,255,255,0.92); text-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+#screenFinal .screenTitle { 
+  color: rgba(255,255,255,0.92); 
+  text-shadow: 0 2px 8px rgba(0,0,0,0.45); 
+}
 
 .finalPreview {
   display: grid;
@@ -345,13 +373,35 @@ body {
   font-family: inherit;
 }
 
-.btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn:hover { 
+  transform: translateY(-2px); 
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2); 
 
-.btn-primary { background: #c9a46a; color: #2a1f14; }
-.btn-secondary { background: #d6c1a3; color: #2a1f14; }
-.btn-success { background: #b08d57; color: #2a1f14; }
-.btn-danger { background: #8b6b3e; color: #f6eddc; }
+}
+.btn:disabled { 
+  opacity: 0.5; cursor: not-allowed; 
+  transform: none; box-shadow: none; 
+}
+
+.btn-primary { 
+  background: #ffa400 ; 
+  color: #2a1f14; 
+}
+
+.btn-secondary {
+  background: #d6c1a3; 
+  color: #2a1f14; 
+}
+
+.btn-success { 
+  background: #ffa400 ; 
+  color: #2a1f14; 
+}
+
+.btn-danger { 
+  background: #8b6b3e; 
+  color: #f6eddc; 
+}
 
 /* Logo */
 .screenLogo {
