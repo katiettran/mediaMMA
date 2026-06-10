@@ -360,6 +360,7 @@ startPreviewLoop() {
     }
 
    async applyBackgroundsAndSelect() {
+    this.showError('Processing photos...');
     if (this.kvBackground) {
         for (let i = 0; i < this.photoBlobs.length; i++) {
             const img = await this.loadImage(this.photoUrls[i]);
